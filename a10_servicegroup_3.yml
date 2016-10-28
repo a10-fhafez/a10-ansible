@@ -1,0 +1,24 @@
+---
+- name: create a service group
+  user: fadi
+  hosts:  a10
+  connection: local
+  gather_facts: no
+  strategy: debug
+
+  tasks:
+    - debug:
+        msg: "{{inventory_hostname}}"
+    - name: Create a service group
+      a10_service_group_v2:
+        validate_certs: no
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        service_group: sg-80-tcp
+        servers:
+           - server: rip_server1
+             port: 80
+           - server: rip_server2
+             port: 80

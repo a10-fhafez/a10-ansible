@@ -1,0 +1,28 @@
+- name: create a virtual server
+  user: fadi
+  hosts:  a10
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - debug:
+        msg: "{{inventory_hostname}}"
+    - name: Create a virtual server
+      a10_virtual_server_v2:
+        validate_certs: no
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        virtual_server: vs_server1
+        virtual_server_ip: 1.1.1.1
+        virtual_server_ports:
+          - port: 80
+            protocol: TCP
+            service_group: sg-80-tcp
+          - port: 443
+            protocol: HTTPS
+            service_group: sg-80-tcp
+          - port: 8080
+            protocol: http
+            service_group: sg-80-tcp
