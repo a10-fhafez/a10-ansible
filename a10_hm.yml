@@ -1,0 +1,80 @@
+- name: list a virtual server
+  user: fadi
+  hosts:  a10
+  connection: local
+  gather_facts: no
+  vars:
+    partition: "RCSIN_PRV"
+
+  tasks:
+    - name: Create a health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: absent
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: ws_hm_http
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        http:
+          port: 8080
+          url: "GET /dir/to/hm.html"
+          expect_code: 200
+
+    - name: Create another health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: absent
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: ws_hm_tcp
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        tcp:
+          port: 8080
+
+    - name: Create a third health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: absent
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: ws_hm_ext
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        external:
+          program: "somethingtorun"
+
+    - name: Create a fourth health monitor
+      a10_health_monitor_v2: 
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        validate_certs: no
+        partition: RCSIN_PRV
+        hm_name: ws_hm
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        external:
+          program: checkServerStatus
+          server_port: 2245
+          arguments: ""
+          preference: 1
