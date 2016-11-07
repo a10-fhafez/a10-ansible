@@ -1,0 +1,156 @@
+---
+- name: create a health monitors, servers, service-groups and VIPs
+  user: fadi
+  hosts: a10
+  connection: local
+  gather_facts: no
+  vars:
+    validate_certs: no
+    state: present
+
+  tasks:
+    - name: Create an icmp health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: "{{state}}"
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: hm_icmp
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        icmp: ""
+
+    - name: Create an http health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: "{{state}}"
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: ws_hm_http
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        http:
+          port: 8080
+          url: "GET /dir/to/hm.html"
+          expect_code: 200
+
+    - name: Create a tcp health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: "{{state}}"
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: ws_hm_tcp
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        tcp:
+          port: 8080
+
+    - name: Create a external health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: "{{state}}"
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        partition: RCSIN_PRV
+        hm_name: ws_hm_ext
+        interval: 4
+        timeout: 4
+        retry: 2
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        external:
+          program: programname
+          arguments: "abc"
+
+    - name: Create a realserver
+      a10_server_v2:
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        state: "{{state}}"
+        validate_certs: "{{validate_certs}}"
+        partition: RCSIN_PRV
+        server_name: rip_server1
+        server_ip: 1.1.1.100
+        server_hm: "hm_icmp"
+        server_ports:
+            - port_num: 80
+              protocol: tcp
+              health_monitor: "ws_hm_tcp"
+            - port_num: 8443
+              protocol: tcp
+              health_monitor: "ws_hm_tcp"
+
+    - name: Create another realserver
+      a10_server_v2:
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        state: "{{state}}"
+        validate_certs: no
+        partition: RCSIN_PRV
+        server_name: rip_server2
+        server_ip: 1.1.1.101
+        health_monitor: "hm_icmp"
+        server_ports:
+            - port_num: 8080
+              protocol: tcp
+              health_monitor: "ws_hm_tcp"
+            - port_num: 443
+              protocol: tcp
+              health_monitor: "ws_hm_tcp"
+
+    - name: Create a service group
+      a10_service_group_v2:
+        validate_certs: "{{validate_certs}}"
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        state: "{{state}}"
+        partition: RCSIN_PRV
+        service_group: sg-80-tcp
+        health_monitor: "ws_hm_http"
+        client_reset: false
+        servers:
+           - server: rip_server1
+             port: 80
+           - server: rip_server2
+             port: 80
+
+    - name: Create a virtual server
+      a10_create_virtual_server_v2:
+        validate_certs: "{{validate_certs}}"
+        host: "{{inventory_hostname}}"
+        username: admin
+        password: a10
+        state: "{{state}}"
+        partition: RCSIN_PRV
+        virtual_server: vs_server1
+        virtual_server_ip: 1.1.1.1
+        virtual_server_ports:
+          - port: 80
+            protocol: TCP
+            service_group: sg-80-tcp
+          - port: 443
+            protocol: HTTPS
+            service_group: sg-80-tcp
+          - port: 8080
+            protocol: http
+            service_group: sg-80-tcp
