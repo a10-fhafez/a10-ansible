@@ -67,6 +67,18 @@ options:
     default: null
     aliases: ['service', 'pool', 'group']
     choices: []
+  health_monitor:
+    description:
+      - health monitor name to apply to all servers in the service group.  The health monitor must already exist.
+    required: false
+    default: null
+    choices: []
+  client_reset:
+    description:
+      - reset-on-server-selection-fail
+    required: false
+    default: false
+    choices: ['true','false']
   service_group_protocol:
     description:
       - slb service-group protocol
@@ -112,12 +124,14 @@ options:
 
 EXAMPLES = '''
 # Create a new service-group
-- a10_service_group: 
+- a10_service_group_v2: 
     host: a10.mydomain.com
     username: myadmin
     password: mypassword
     partition: RCSIN_PRV
     service_group: sg-80-tcp
+    health_monitor: ws_http_hm
+    client_reset: true
     servers:
       - server: foo1.mydomain.com
         port: 8080
@@ -131,7 +145,7 @@ EXAMPLES = '''
 
 '''
 
-VALID_SERVICE_GROUP_FIELDS = ['name', 'protocol', 'lb_method']
+VALID_SERVICE_GROUP_FIELDS = ['name', 'protocol', 'lb_method', 'health_monitor', 'client_reset']
 VALID_SERVER_FIELDS = ['server', 'port', 'status']
 
 def validate_servers(module, servers):
@@ -153,7 +167,7 @@ def validate_servers(module, servers):
         else:
             module.fail_json(msg="server definitions must define the port field")
 
-        # convert the status to the internal API integer value
+       # convert the status to the internal API integer value
         if 'status' in item:
             item['status'] = axapi_enabled_disabled(item['status'])
         else:
@@ -183,6 +197,8 @@ def main():
                                                'src-ip-only-hash',
                                                'src-ip-hash']),
             servers=dict(type='list', aliases=['server', 'member'], default=[]),
+            health_monitor=dict(type='str', aliases=['hm']),
+            client_reset=dict(type='str', default='false'),
         )
     )
 
@@ -201,6 +217,8 @@ def main():
     slb_service_group_proto = module.params['service_group_protocol']
     slb_service_group_method = module.params['service_group_method']
     slb_servers = module.params['servers']
+    slb_health_monitor = module.params['health_monitor']
+    slb_client_reset = module.params['client_reset']
 
     if slb_service_group is None:
         module.fail_json(msg='service_group is required')
@@ -224,16 +242,20 @@ def main():
     else:
         protocol = 3
 
-    # validate the server data list structure
-    validate_servers(module, slb_servers)
-
     json_post = {
         'service_group': {
             'name': slb_service_group,
             'protocol': protocol,
             'lb_method': load_balancing_methods[slb_service_group_method],
+            'client_reset': slb_client_reset,
         }
     }
+
+    if slb_health_monitor:
+        json_post['service_group']['health_monitor'] = slb_health_monitor
+
+    # validate the server data list structure
+    validate_servers(module, slb_servers)
 
     # first we authenticate to get a session id
     session_url = axapi_authenticate(module, axapi_base_url, username, password)
@@ -244,6 +266,14 @@ def main():
         if (result['response']['status'] == 'fail'):
             module.fail_json(msg=result['response']['err']['msg'])
 
+    # validate that if the health monitor has been passed in, it exists on the system already
+    if slb_health_monitor:
+        get_hm_json_post = {"name": slb_health_monitor}
+        result = axapi_call(module, session_url + '&method=slb.hm.search', json.dumps(get_hm_json_post))
+        if ('response' in result and result['response']['status'] == 'fail'):
+            module.fail_json(msg=result['response']['err']['msg'])
+
+ 
     # then we check to see if the specified group exists
     slb_result = axapi_call(module, session_url + '&method=slb.service_group.search', json.dumps({'name': slb_service_group}))
     slb_service_group_exist = not axapi_failure(slb_result)
@@ -270,7 +300,9 @@ def main():
             # if it needs it
             do_update = False
             for field in VALID_SERVICE_GROUP_FIELDS:
-                if json_post['service_group'][field] != slb_result['service_group'][field]:
+                if (field not in json_post['service_group'] and field in slb_result['service_group']) or \
+                   (field in json_post['service_group'] and field not in slb_result['service_group']) or \
+                   json_post['service_group'][field] != slb_result['service_group'][field]:
                     do_update = True
                     break
 

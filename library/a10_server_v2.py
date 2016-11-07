@@ -29,6 +29,7 @@ short_description: Manage A10 Networks AX/SoftAX/Thunder/vThunder devices
 description:
     - Manage slb server objects on A10 Networks devices via aXAPI
 author: "Mischa Peters (@mischapeters)"
+        modifications by Fadi Hafez
 notes:
     - Requires A10 Networks aXAPI 2.1
 options:
@@ -73,9 +74,14 @@ options:
   server_ports:
     description:
       - A list of ports to create for the server. Each list item should be a
-        dictionary which specifies the C(port:) and C(protocol:), but can also optionally
+        dictionary which specifies the C(port:) and C(protocol:) and C(health_monitor:), but can also optionally
         specify the C(status:). See the examples below for details. This parameter is
-        required when C(state) is C(present).
+        required when C(state) is C(present).  Health Monitor must already exist.
+    required: false
+    default: null
+   server_hm:
+    description:
+      - A health monitor name to bind to this server.  The health monitor must already exist.
     required: false
     default: null
   state:
@@ -113,17 +119,20 @@ EXAMPLES = '''
     password: mypassword
     server: test
     server_ip: 1.1.1.100
+    server_hm: hm_icmp
     server_ports:
       - port_num: 8080
         protocol: tcp
+        health_monitor: ws_hm_http
       - port_num: 8443
         protocol: TCP
+        health_monitor: ws_hm_https
 
 '''
 
-VALID_PORT_FIELDS = ['port_num', 'protocol', 'status']
+VALID_PORT_FIELDS = ['port_num', 'protocol', 'status', 'health_monitor']
 
-def validate_ports(module, ports):
+def validate_ports(module, ports, s_url):
     for item in ports:
         for key in item:
             if key not in VALID_PORT_FIELDS:
@@ -149,6 +158,15 @@ def validate_ports(module, ports):
         else:
             module.fail_json(msg="port definitions must define the port protocol (%s)" % ','.join(AXAPI_PORT_PROTOCOLS))
 
+
+        # validate that if the health monitor has been passed it, it exists on the system already
+        if 'health_monitor' in item:
+            json_post = {"name": item['health_monitor']}
+            result = axapi_call(module, s_url + '&method=slb.hm.search', json.dumps(json_post))
+            if ('response' in result and result['response']['status'] == 'fail'):
+                module.fail_json(msg=result['response']['err']['msg'])
+   
+
         # convert the status to the internal API integer value
         if 'status' in item:
             item['status'] = axapi_enabled_disabled(item['status'])
@@ -167,6 +185,7 @@ def main():
             server_ip=dict(type='str', aliases=['ip', 'address']),
             server_status=dict(type='str', default='enabled', aliases=['status'], choices=['enabled', 'disabled']),
             server_ports=dict(type='list', aliases=['port'], default=[]),
+            server_hm=dict(type='str', aliases=['health_monitor'])
         )
     )
 
@@ -185,6 +204,7 @@ def main():
     slb_server_ip = module.params['server_ip']
     slb_server_status = module.params['server_status']
     slb_server_ports = module.params['server_ports']
+    slb_server_hm = module.params['server_hm']
 
     if slb_server is None:
         module.fail_json(msg='server_name is required')
@@ -199,7 +219,7 @@ def main():
             module.fail_json(msg=result['response']['err']['msg'])
 
     # validate the ports data structure
-    validate_ports(module, slb_server_ports)
+    validate_ports(module, slb_server_ports, session_url)
 
     json_post = {
         'server': {
@@ -213,6 +233,9 @@ def main():
 
     if slb_server_ports:
         json_post['server']['port_list'] = slb_server_ports
+
+    if slb_server_hm:
+        json_post['server']['health_monitor'] = slb_server_hm
 
     if slb_server_status:
         json_post['server']['status'] = axapi_enabled_disabled(slb_server_status)

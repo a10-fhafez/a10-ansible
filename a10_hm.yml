@@ -59,6 +59,7 @@
         consec_pass_reqd: 1
         external:
           program: "somethingtorun"
+          arguments: "abc"
 
     - name: Create a fourth health monitor
       a10_health_monitor_v2: 
