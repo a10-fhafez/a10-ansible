@@ -6,7 +6,7 @@
   gather_facts: no
   vars:
     validate_certs: no
-    state: present
+    state: absent
 
   tasks:
     - name: Create an icmp health monitor

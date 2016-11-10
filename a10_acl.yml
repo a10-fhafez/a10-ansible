@@ -4,6 +4,12 @@
   hosts: a10
   connection: local
   gather_facts: no
+  vars:
+    state: absent
+    creds:
+      part: "{{part}}"
+      username: "{{username}}"
+      password: "{{pass}}"
 
   tasks:
     - debug:
@@ -12,10 +18,10 @@
     - name: Create an ACL
       a10_acl_v2: 
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{creds{{username}}}}"
+        password: "{{creds{{password}}}}"
         validate_certs: no
-        state: present
+        state: "{{state}}"
         partition: RCSIN_PRV
         acl_id: 102
         remark_list:

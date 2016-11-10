@@ -28,8 +28,7 @@ version_added: 1.8
 short_description: Manage A10 Networks AX/SoftAX/Thunder/vThunder devices
 description:
     - Manage extended acl objects on A10 Networks devices via aXAPI
-author: Fadi Hafez
-        using works of Mischa Peters
+author: Fadi Hafez using works of Mischa Peters
 notes:
     - Requires A10 Networks aXAPI 2.1
 options:
@@ -64,7 +63,7 @@ options:
       - acl ID (100 - 199)
     required: true
     aliases: ['acl']
- remark_list:
+  remark_list:
     description:
       - List of remarks
         Must contain a list of seq_num and remark_string pairs
@@ -76,21 +75,21 @@ options:
       - List of extended ACL items
         Must contain seq_num (range 1 - 8192)
         Can contain 
-          action (0=deny,1=permit,2=l3-vlan-fwd-disable, default:0), 
-          log (0=deny,1=permit,2=only log transparent sessions, default:0),
-          protocol (0=icmp,1=ip,2=tcp,3=udp, default:0)
-          src_ip, 
-          src_mask,
-          dst_ip,
-          dst_mask,
-          vlan_id,
-          src_port_start,
-          src_port_end,
-          dst_port_start,
-          dst_port_end
+          - action (0=deny,1=permit,2=l3-vlan-fwd-disable, default:0), 
+            log (0=deny,1=permit,2=only log transparent sessions, default:0),
+            protocol (0=icmp,1=ip,2=tcp,3=udp, default:0)
+            src_ip, 
+            src_mask,
+            dst_ip,
+            dst_mask,
+            vlan_id,
+            src_port_start,
+            src_port_end,
+            dst_port_start,
+            dst_port_end
     required: true
     aliases: ['items']
- write_config:
+  write_config:
     description:
       - If C(yes), any changes will cause a write of the running configuration
         to non-volatile memory. This will save I(all) configuration changes,

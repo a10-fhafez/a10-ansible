@@ -28,8 +28,7 @@ version_added: 1.8
 short_description: Manage A10 Networks AX/SoftAX/Thunder/vThunder devices
 description:
     - Manage slb server objects on A10 Networks devices via aXAPI
-author: "Mischa Peters (@mischapeters)"
-        modifications by Fadi Hafez
+author: Mischa Peters (@mischapeters) with modifications by Fadi Hafez
 notes:
     - Requires A10 Networks aXAPI 2.1
 options:
@@ -79,7 +78,7 @@ options:
         required when C(state) is C(present).  Health Monitor must already exist.
     required: false
     default: null
-   server_hm:
+  server_hm:
     description:
       - A health monitor name to bind to this server.  The health monitor must already exist.
     required: false
@@ -98,8 +97,8 @@ options:
         so care should be taken when specifying C(yes).
     required: false
     version_added: 2.2
-    default: "no"
-    choices: ["yes", "no"]
+    default: 'no'
+    choices: ['yes', 'no']
   validate_certs:
     description:
       - If C(no), SSL certificates will not be validated. This should only be used
