@@ -13,7 +13,7 @@
       private: no
     - name: password
       prompt: password
-      private: no
+      private: yes
 
 
 
