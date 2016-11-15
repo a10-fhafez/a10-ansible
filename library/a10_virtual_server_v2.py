@@ -129,7 +129,7 @@ EXAMPLES = '''
 
 '''
 
-VALID_PORT_FIELDS = ['port', 'protocol', 'service_group', 'status']
+VALID_PORT_FIELDS = ['port', 'protocol', 'service_group', 'status','tcp_template','tcp_proxy_template','ssl_session_id_persistence_template','ha_connection_mirror','extended_stats','source_nat','cookie_persistence_template','aflex_list','http_template','client_ssl_template','server_ssl_template','acl_natpool_binding_list']
 
 def validate_ports(module, ports):
     for item in ports:
@@ -177,6 +177,8 @@ def main():
             virtual_server=dict(type='str', aliases=['vip', 'virtual'], required=True),
             virtual_server_ip=dict(type='str', aliases=['ip', 'address'], required=True),
             virtual_server_status=dict(type='str', default='enabled', aliases=['status'], choices=['enabled', 'disabled']),
+            disable_vserver_on_condition=dict(type='str', choices=['0','1','2'], required=False, default='0'),
+            redistribution_flagged=dict(type='str', choices=['True','False'], required=False, default='False'),
             virtual_server_ports=dict(type='list', required=True),
         )
     )
@@ -196,6 +198,8 @@ def main():
     slb_virtual_ip = module.params['virtual_server_ip']
     slb_virtual_status = module.params['virtual_server_status']
     slb_virtual_ports = module.params['virtual_server_ports']
+    redistribution_flagged = module.params['redistribution_flagged']
+    disable_vserver_on_condition = module.params['disable_vserver_on_condition']
 
     if slb_virtual is None:
         module.fail_json(msg='virtual_server is required')
@@ -224,6 +228,12 @@ def main():
                 'vport_list': slb_virtual_ports,
             }
         }
+
+        # if redistribution_flagged was passed in
+        if redistribution_flagged:
+            json_post['redistribution_flagged'] = 1
+        else:
+            json_post['redistribution_flagged'] = 0 
 
         # before creating/updating we need to validate that any
         # service groups defined in the ports list exist since
@@ -259,9 +269,13 @@ def main():
                         if src_port['port'] == dst_port['port']:
                             found = True
                             for valid_field in VALID_PORT_FIELDS:
-                                if src_port[valid_field] != dst_port[valid_field]:
-                                    different = True
-                                    break
+                                if valid_field in src_port and valid_field in dst_port:
+                                    if src_port[valid_field] != dst_port[valid_field]:
+                                        different = True
+                                        break
+                                else:
+                                  different = True
+                                  break
                             if found or different:
                                 break
                     if not found or different:
