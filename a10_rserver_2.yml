@@ -4,6 +4,18 @@
   hosts: a10
   connection: local
   gather_facts: no
+  vars:
+    state: present
+    partition: RCSIN_PRV
+  vars_prompt:
+    - name: username
+      prompt: username
+      private: no
+    - name: password
+      prompt: password
+      private: yes
+
+
 
   tasks:
     - debug:
@@ -12,30 +24,34 @@
     - name: Create a realserver
       a10_server_v2:
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
         state: present
         validate_certs: no
-        partition: RCSIN_PRV
+        partition: "{{partition}}"
         server_name: rip_server1
         server_ip: 1.1.1.100
         server_ports:
             - port_num: 80
               protocol: tcp
+#              health_monitor: fadi
             - port_num: 8443
               protocol: tcp
+#              health_monitor: fadi
 
     - name: Create another realserver
       a10_server_v2:
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
         validate_certs: no
-        partition: RCSIN_PRV
+        partition: "{{partition}}"
         server_name: rip_server2
         server_ip: 1.1.1.101
         server_ports:
             - port_num: 8080
               protocol: tcp
+#              health_monitor: fadi
             - port_num: 443
               protocol: tcp
+#              health_monitor: fadi

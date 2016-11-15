@@ -5,11 +5,15 @@
   connection: local
   gather_facts: no
   vars:
-    state: absent
-    creds:
-      part: "{{part}}"
-      username: "{{username}}"
-      password: "{{pass}}"
+    state: present
+    partition: RCSIN_PRV
+  vars_prompt:
+    - name: username
+      prompt: username
+      private: no
+    - name: password
+      prompt: password
+      private: yes
 
   tasks:
     - debug:
@@ -18,11 +22,11 @@
     - name: Create an ACL
       a10_acl_v2: 
         host: "{{inventory_hostname}}"
-        username: "{{creds{{username}}}}"
-        password: "{{creds{{password}}}}"
+        username: "{{username}}"
+        password: "{{password}}"
         validate_certs: no
+        partition: "{{partition}}"
         state: "{{state}}"
-        partition: RCSIN_PRV
         acl_id: 102
         remark_list:
           - seq_num: 12

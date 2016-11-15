@@ -5,8 +5,17 @@
   connection: local
   gather_facts: no
   vars:
-    validate_certs: no
-    state: absent
+    state: present
+    partition: RCSIN_PRV
+  vars_prompt:
+    - name: username
+      prompt: username
+      private: no
+    - name: password
+      prompt: password
+      private: yes
+
+
 
   tasks:
     - name: Create an icmp health monitor
@@ -14,9 +23,9 @@
         validate_certs: no
         state: "{{state}}"
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: hm_icmp
         interval: 4
         timeout: 4
@@ -30,9 +39,9 @@
         validate_certs: no
         state: "{{state}}"
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: ws_hm_http
         interval: 4
         timeout: 4
@@ -49,9 +58,9 @@
         validate_certs: no
         state: "{{state}}"
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: ws_hm_tcp
         interval: 4
         timeout: 4
@@ -66,9 +75,9 @@
         validate_certs: no
         state: "{{state}}"
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: ws_hm_ext
         interval: 4
         timeout: 4
@@ -82,11 +91,11 @@
     - name: Create a realserver
       a10_server_v2:
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         state: "{{state}}"
         validate_certs: "{{validate_certs}}"
-        partition: RCSIN_PRV
         server_name: rip_server1
         server_ip: 1.1.1.100
         server_hm: "hm_icmp"
@@ -101,11 +110,11 @@
     - name: Create another realserver
       a10_server_v2:
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         state: "{{state}}"
         validate_certs: no
-        partition: RCSIN_PRV
         server_name: rip_server2
         server_ip: 1.1.1.101
         health_monitor: "hm_icmp"
@@ -121,10 +130,10 @@
       a10_service_group_v2:
         validate_certs: "{{validate_certs}}"
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         state: "{{state}}"
-        partition: RCSIN_PRV
         service_group: sg-80-tcp
         health_monitor: "ws_hm_http"
         client_reset: false
@@ -138,10 +147,10 @@
       a10_create_virtual_server_v2:
         validate_certs: "{{validate_certs}}"
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         state: "{{state}}"
-        partition: RCSIN_PRV
         virtual_server: vs_server1
         virtual_server_ip: 1.1.1.1
         virtual_server_ports:

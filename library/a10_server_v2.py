@@ -164,6 +164,8 @@ def validate_ports(module, ports, s_url):
             result = axapi_call(module, s_url + '&method=slb.hm.search', json.dumps(json_post))
             if ('response' in result and result['response']['status'] == 'fail'):
                 module.fail_json(msg=result['response']['err']['msg'])
+        else:
+            item['health_monitor'] = "(default)"
    
 
         # convert the status to the internal API integer value
@@ -266,7 +268,11 @@ def main():
                         if src_port['port_num'] == dst_port['port_num']:
                             found = True
                             for valid_field in VALID_PORT_FIELDS:
-                                if src_port[valid_field] != dst_port[valid_field]:
+                                if valid_field in src_port and valid_field in dst_port:
+                                    if src_port[valid_field] != dst_port[valid_field]:
+                                        different = True
+                                        break
+                                else:
                                     different = True
                                     break
                             if found or different:

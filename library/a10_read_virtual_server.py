@@ -125,10 +125,11 @@ def main():
     argument_spec.update(
         dict(
             state=dict(type='str', default='present', choices=['present', 'absent']),
-#            partition=dict(type='str', aliases=['partition','part']), 
+            partition=dict(type='str', aliases=['partition','part']), 
             virtual_server=dict(type='str', aliases=['vip', 'virtual'], required=False),
             virtual_server_ip=dict(type='str', aliases=['ip', 'address'], required=False),
-            creds=dict(type='dict', required=True)
+            username=dict(type='str', aliases=['user']), 
+            password=dict(type='str', aliases=['pass']), 
         )
     )
 
@@ -139,14 +140,11 @@ def main():
 
 
     host = module.params['host']
-#    username = module.params['username']
-#    password = module.params['password']
-#    part = module.params['partition']
+    username = module.params['username']
+    password = module.params['password']
+    part = module.params['partition']
     
 
-    username = module.params['creds']['username']
-    password = module.params['creds']['password']
-    part = module.params['creds']['part']
     slb_virtual = module.params['virtual_server']
     slb_virtual_ip = module.params['virtual_server_ip']
 

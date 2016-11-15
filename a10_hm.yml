@@ -4,7 +4,17 @@
   connection: local
   gather_facts: no
   vars:
-    partition: "RCSIN_PRV"
+    state: present
+    partition: RCSIN_PRV
+  vars_prompt:
+    - name: username
+      prompt: username
+      private: no
+    - name: password
+      prompt: password
+      private: yes
+
+
 
   tasks:
     - name: Create a health monitor
@@ -12,9 +22,9 @@
         validate_certs: no
         state: absent
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: ws_hm_http
         interval: 4
         timeout: 4
@@ -31,9 +41,9 @@
         validate_certs: no
         state: absent
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: ws_hm_tcp
         interval: 4
         timeout: 4
@@ -48,9 +58,9 @@
         validate_certs: no
         state: absent
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         hm_name: ws_hm_ext
         interval: 4
         timeout: 4
@@ -64,10 +74,10 @@
     - name: Create a fourth health monitor
       a10_health_monitor_v2: 
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         validate_certs: no
-        partition: RCSIN_PRV
         hm_name: ws_hm
         interval: 4
         timeout: 4

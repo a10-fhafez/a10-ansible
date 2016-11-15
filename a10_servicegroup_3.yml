@@ -5,6 +5,18 @@
   connection: local
   gather_facts: no
   strategy: debug
+  vars:
+    state: present
+    partition: RCSIN_PRV
+  vars_prompt:
+    - name: username
+      prompt: username
+      private: no
+    - name: password
+      prompt: password
+      private: yes
+
+
 
   tasks:
     - debug:
@@ -13,9 +25,9 @@
       a10_service_group_v2:
         validate_certs: no
         host: "{{inventory_hostname}}"
-        username: admin
-        password: a10
-        partition: RCSIN_PRV
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
         service_group: sg-80-tcp
         servers:
            - server: rip_server1
