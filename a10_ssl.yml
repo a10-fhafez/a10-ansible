@@ -1,10 +1,9 @@
 ---
-- name: create a service group
-  user: fadi
-  hosts:  a10
+- name: upload or download an SSL Cert
+  user: admin
+  hosts: a10
   connection: local
   gather_facts: no
-  strategy: debug
   vars:
     state: present
     partition: RCSIN_PRV
@@ -16,22 +15,18 @@
       prompt: password
       private: yes
 
-
-
   tasks:
     - debug:
         msg: "{{inventory_hostname}}"
-    - name: Create a service group
-      a10_service_group_v2:
-        validate_certs: no
+
+    - name: Create an ACL
+      a10_ssl_v2: 
         host: "{{inventory_hostname}}"
         username: "{{username}}"
         password: "{{password}}"
+        validate_certs: no
         partition: "{{partition}}"
-        service_group: sg-80-tcp
-#        client_reset: True
-        servers:
-           - server: rip_server1
-             port: 80
-           - server: rip_server2
-             port: 80
+        state: "{{state}}"
+        file_name: fadi2.crt.pem
+        file_type: certificate
+        method: download

@@ -26,8 +26,8 @@
         partition: "{{partition}}"
         virtual_server: vs_server1
         virtual_server_ip: 1.1.1.1
-        redistribution_flagged: False
-        disable_vserver_on_condition: 2
+        redistribution_flagged: True
+        disable_vserver_on_condition: 0
         virtual_server_ports:
           - port: 80
             protocol: TCP

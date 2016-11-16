@@ -230,10 +230,14 @@ def main():
         }
 
         # if redistribution_flagged was passed in
-        if redistribution_flagged:
+        if redistribution_flagged == 'True':
             json_post['redistribution_flagged'] = 1
         else:
             json_post['redistribution_flagged'] = 0 
+
+
+        if disable_vserver_on_condition:
+            json_post['disable_vserver_on_condition'] = disable_vserver_on_condition
 
         # before creating/updating we need to validate that any
         # service groups defined in the ports list exist since

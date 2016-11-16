@@ -198,7 +198,7 @@ def main():
                                                'src-ip-hash']),
             servers=dict(type='list', aliases=['server', 'member'], default=[]),
             health_monitor=dict(type='str', aliases=['hm']),
-            client_reset=dict(type='str', default='false'),
+            client_reset=dict(type='bool', default=False),
         )
     )
 
@@ -247,9 +247,13 @@ def main():
             'name': slb_service_group,
             'protocol': protocol,
             'lb_method': load_balancing_methods[slb_service_group_method],
-            'client_reset': slb_client_reset,
         }
     }
+
+    if slb_client_reset == True:
+        json_post['client_reset'] = 1
+    else:
+        json_post['client_reset'] = 0
 
     if slb_health_monitor:
         json_post['service_group']['health_monitor'] = slb_health_monitor
