@@ -6,7 +6,8 @@
   gather_facts: no
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: 
+    validate_certs: no
   vars_prompt:
     - name: username
       prompt: username
@@ -144,15 +145,15 @@
              port: 80
 
     - name: Create a virtual server
-      a10_create_virtual_server_v2:
+      a10_virtual_server_v2:
         validate_certs: "{{validate_certs}}"
         host: "{{inventory_hostname}}"
         username: "{{username}}"
         password: "{{password}}"
-        partition: "{{partition}}"
+#        partition: "{{partition}}"
         state: "{{state}}"
-        virtual_server: vs_server1
-        virtual_server_ip: 1.1.1.1
+        virtual_server: web-vip
+        virtual_server_ip: 192.168.200.102
         virtual_server_ports:
           - port: 80
             protocol: TCP
@@ -163,3 +164,7 @@
           - port: 8080
             protocol: http
             service_group: sg-80-tcp
+          - port: 53
+            protocol: dns-udp
+            service_group: sg-dns
+            aflex_list: ['nxdomain_rl']

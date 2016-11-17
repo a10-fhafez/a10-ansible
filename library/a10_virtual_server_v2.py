@@ -146,6 +146,8 @@ def validate_ports(module, ports):
         else:
             module.fail_json(msg="port definitions must define the port field")
 
+        AXAPI_VPORT_PROTOCOLS['dns-udp'] = 18
+
         # validate the port protocol is present, and convert it to
         # the internal API integer value (and validate it)
         if 'protocol' in item:

@@ -27,5 +27,5 @@
         validate_certs: no
         partition: "{{partition}}"
         state: "{{state}}"
-        file_name: xyz
+        file_name: nxdomain_rl
         method: upload
