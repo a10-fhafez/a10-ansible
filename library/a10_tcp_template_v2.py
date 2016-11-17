@@ -83,19 +83,19 @@ options:
   force_del_timeout:
     description:
       - max number of seconds a session can remain active
-        range: 1-31
+        range 1-31
     required: false
     default: 0
   init_win_size:
     description:
       - set initial tcp window size in SYN ACK packets to clients
-        range: 1-65535
+        range 1-65535
     required: false
     default: 0
   half_close_idle_timeout:
     description:
       - enable aging of half-closed TCP sessions
-        range: 60-15000
+        range 60-15000
     required: false
     default: 0
   reset_fwd:
@@ -184,6 +184,7 @@ def main():
     state = module.params['state']
     write_config = module.params['write_config']
     name = module.params['name']
+
     alive_if_active = module.params['alive_if_active']
     idle_timeout = module.params['idle_timeout']
     force_del_timeout_unit = module.params['force_del_timeout_unit']
@@ -214,24 +215,44 @@ def main():
         }
     }
 
-    if alive_if_active is not None:
-        json_post['alive_if_active'] = alive_if_active
+    if alive_if_active is None or alive_if_active == False:
+        json_post['tcp_template']['alive_if_active'] = 0
+    else:
+        json_post['tcp_template']['alive_if_active'] = 1
+
     if idle_timeout is not None:
-        json_post['idle_timeout'] = idle_timeout
-    if force_del_timeout_unit is not None:
-        json_post['force_del_timeout_unit'] = force_del_timeout_unit
-    if force_del_timeout is not None:
-        json_post['force_del_timeout'] = force_del_timeout
+        json_post['tcp_template']['idle_timeout'] = idle_timeout
+
+    if force_del_timeout_unit is None or force_del_timeout_unit == False:
+        json_post['tcp_template']['force_del_timeout_unit'] = 0
+    else:
+        json_post['tcp_template']['force_del_timeout_unit'] = 1
+
+    if force_del_timeout is None or force_del_timeout == False:
+        json_post['tcp_template']['force_del_timeout'] = 0
+    else:
+        json_post['tcp_template']['force_del_timeout'] = 1
+
     if init_win_size is not None:
-        json_post['init_win_size'] = init_win_size
+        json_post['tcp_template']['init_win_size'] = init_win_size
+
     if half_close_idle_timeout is not None:
-        json_post['half_close_idle_timeout'] = half_close_idle_timeout
-    if reset_fwd is not None:
-        json_post['reset_fwd'] = reset_fwd
-    if reset_rec is not None:
-        json_post['reset_rec'] = reset_rec
-    if fast_tcp_acl_on_lan is not None:
-        json_post['fast_tcp_acl_on_lan'] = fast_tcp_acl_on_lan
+        json_post['tcp_template']['half_close_idle_timeout'] = half_close_idle_timeout
+
+    if reset_fwd is None or reset_fwd == False:
+        json_post['tcp_template']['reset_fwd'] = 0
+    else:
+        json_post['tcp_template']['reset_fwd'] = 1
+
+    if reset_rec is None or reset_rec == False:
+        json_post['tcp_template']['reset_rec'] = 0
+    else:
+        json_post['tcp_template']['reset_rec'] = 1
+
+    if fast_tcp_acl_on_lan is None or fast_tcp_acl_on_lan == False:
+        json_post['tcp_template']['fast_tcp_acl_on_lan'] = 0
+    else:
+        json_post['tcp_template']['fast_tcp_acl_on_lan'] = 0
     
     
     # check to see if this tcp_template exists
