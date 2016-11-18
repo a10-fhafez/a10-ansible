@@ -392,4 +392,5 @@ from ansible.module_utils.urls import *
 from ansible.module_utils.a10 import *
 import codecs
 
-main()
+if __name__ == '__main__':
+    main()

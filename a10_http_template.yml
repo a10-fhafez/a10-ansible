@@ -19,15 +19,16 @@
     - debug:
         msg: "{{inventory_hostname}}"
 
-    - name: Create a TCP Template
-      a10_tcp_template_v2: 
+    - name: Create an HTTP Template
+      a10_http_template_v2: 
         host: "{{inventory_hostname}}"
         username: "{{username}}"
         password: "{{password}}"
         validate_certs: no
         partition: "{{partition}}"
         state: "{{state}}"
-        name: faditcp
-        reset_fwd: True
-        reset_rec: True
-        force_del_timeout_unit: 1
+        name: my_http_templ
+        url_switching_list: 
+          - url: english
+            service_group: sg-80-tcp
+            match_method: 0

@@ -23,11 +23,11 @@ along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
 ---
-module: a10_acl
-version_added: 1.8
+module: a10_http_template
+version_added: 2.2.0.0
 short_description: Manage A10 Networks AX/SoftAX/Thunder/vThunder devices
 description:
-    - Manage extended acl objects on A10 Networks devices via aXAPI
+    - Manage http template objects on A10 Networks devices via aXAPI
 author: Fadi Hafez using works of Mischa Peters
 notes:
     - Requires A10 Networks aXAPI 2.1
@@ -58,37 +58,24 @@ options:
     required: false
     default: present
     choices: ['present', 'absent']
-  acl_id:
+  name:
     description:
-      - acl ID (100 - 199)
+      - name of the template
     required: true
-    aliases: ['acl']
-  remark_list:
+  url_switching_list:
     description:
-      - List of remarks
-        Must contain a list of seq_num and remark_string pairs
+      - a list of url switching parameters, to switch traffic to a different service group if url startswith/contains/endswith a specified string
+      - each list item must contain url, service_group, match_method
+      - match_method can be 0=contains, 1=startswith, 2=endswith, 3=equals
     required: false
     default: null
-    aliases: ['rem']
-  item_list:
+  host_switching_list:
     description:
-      - List of extended ACL items
-        Must contain seq_num (range 1 - 8192)
-        Can contain 
-          - action (0=deny,1=permit,2=l3-vlan-fwd-disable, default:0), 
-            log (0=deny,1=permit,2=only log transparent sessions, default:0),
-            protocol (0=icmp,1=ip,2=tcp,3=udp, default:0)
-            src_ip, 
-            src_mask,
-            dst_ip,
-            dst_mask,
-            vlan_id,
-            src_port_start,
-            src_port_end,
-            dst_port_start,
-            dst_port_end
-    required: true
-    aliases: ['items']
+      - a list of host switching parameters, to switch traffic to a different service group if host startswith/contains/endswith a specified string
+      - each list item must contain host, service_group, match_method
+      - match_method can be 0=contains, 1=startswith, 2=endswith
+    required: false
+    default: null
   write_config:
     description:
       - If C(yes), any changes will cause a write of the running configuration
@@ -97,57 +84,31 @@ options:
         so care should be taken when specifying C(yes).
     required: false
     version_added: 2.2
-    default: "no"
-    choices: ["yes", "no"]
+    default: 'no'
+    choices: ['yes', 'no']
   validate_certs:
     description:
       - If C(no), SSL certificates will not be validated. This should only be used
         on personally controlled devices using self-signed certificates.
     required: false
-    version_added: 2.2
+    version_added: 2.2.0.0
     default: 'yes'
     choices: ['yes', 'no']
 
 '''
 
 EXAMPLES = '''
-# Create a new acl
-- a10_acl: 
+# Create a new HTTP Template
+- a10_http_template: 
     host: a10.mydomain.com
     username: myadmin
     password: mypassword
-    acl_id: 100
-    remark_list:
-      - seq_num: 12
-        remark_string: "something to allow"
-      - seq_num: 16
-        remark_string: "something to block"
-    acl_item_list:
-      - seq_num: 1
-        action: 1
-        log: 1
-        protocol: 2
-        src_ip: "0.0.0.0"
-        src_mask: "255.255.255.255"
-        dst_ip: "0.0.0.0"
-        dst_mask: "255.255.255.255"
-        vlan_id: 0
-
+    name: my_http_templ
+    url_switching_list:
+      - url: english
+        service_group: sg-80-tcp
+        match_method: 0
 '''
-
-VALID_ACL_REM_FIELDS = ['seq_num', 'remark_string']
-VALID_ACL_LIST_FIELDS = ['seq_num','action','log','protocol','src_ip','src_mask','dst_ip','dst_mask','vlan_id']
-
-def validate_keys(module, rem_or_list, keys):
-    if (rem_or_list == 'rem'):
-        VALID_FIELDS = VALID_ACL_REM_FIELDS
-    else:
-        VALID_FIELDS = VALID_ACL_LIST_FIELDS
-
-    for item in keys:
-        for key in item:
-            if key not in VALID_FIELDS:
-                module.fail_json(msg="invalid field (%s), must be one of: %s" % (key, ','.join(VALID_FIELDS)))
 
 
 def main():
@@ -157,9 +118,9 @@ def main():
         dict(
             state=dict(type='str', default='present', choices=['present', 'absent']),
             partition=dict(type='str', aliases=['partition','part'], required=False),
-            acl_id=dict(type='str', aliases=['id'], required=True),
-            remark_list=dict(type='list', aliases=['rem'], default=[]),
-            acl_item_list=dict(type='list', aliases=['acl'], default=[]),
+            name=dict(type='str', required=True),
+            url_switching_list=dict(type='list', default=[]),
+            host_switching_list=dict(type='list', default=[]),
         )
     )
 
@@ -174,12 +135,13 @@ def main():
     part = module.params['partition']
     state = module.params['state']
     write_config = module.params['write_config']
-    acl_id = module.params['acl_id']
-    acl_remarks = module.params['remark_list']
-    acl_items = module.params['acl_item_list']
+    name = module.params['name']
 
-    if acl_id is None:
-        module.fail_json(msg='acl id is required')
+    url_switching_list = module.params['url_switching_list']
+    host_switching_list = module.params['host_switching_list']
+
+    if name is None:
+        module.fail_json(msg='name is required')
 
     axapi_base_url = 'https://%s/services/rest/V2.1/?format=json' % host
     session_url = axapi_authenticate(module, axapi_base_url, username, password)
@@ -190,35 +152,48 @@ def main():
         if (result['response']['status'] == 'fail'):
             module.fail_json(msg=result['response']['err']['msg'])
 
-    # validate the ports data structure
-    validate_keys(module, 'rem', acl_remarks)
-    validate_keys(module, 'items', acl_items)
+        # need to prepend the service_group with the partition name in url and host switching templates
+        if url_switching_list:
+            for item in url_switching_list:
+                item['service_group'] = '?' + part + '?' + item['service_group']
 
+        if host_switching_list:
+            for item in url_switching_list:
+                item['service_group'] = '?' + part + '?' + item['service_group']
+
+
+    # populate the json body for the creation of the http template
     json_post = {
-        'ext_acl': {
-            'id': acl_id,
-            'remark_list': acl_remarks,
-            'acl_item_list': acl_items,
+        'http_template': {
+            'name': name,
         }
     }
 
-    acl_data = axapi_call(module, session_url + '&method=network.acl.ext.search', json.dumps({'id': acl_id}))
-    acl_exists = not axapi_failure(acl_data)
+    if url_switching_list:
+        json_post['url_switching_list'] = url_switching_list
+
+    if host_switching_list:
+        json_post['host_switching_list'] = host_switching_list
+
+   
+    # check to see if this http_template exists
+    http_template_data = axapi_call(module, session_url + '&method=slb.template.http.search', json.dumps({'name': name}))
+    http_template_exists = not axapi_failure(http_template_data)
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=network.acl.ext.create', json.dumps(json_post))
+        result = axapi_call(module, session_url + '&method=slb.template.http.create', json.dumps(json_post))
         if axapi_failure(result):
-            module.fail_json(msg="failed to create the acl: %s" % result['response']['err']['msg'])
+            module.fail_json(msg="failed to create the http template: %s" % result['response']['err']['msg'])
 
         changed = True
 
     elif state == 'absent':
-        if acl_exists:
-            result = axapi_call(module, session_url + '&method=network.acl.ext.delete', json.dumps({'id': acl_id}))
+        if http_template_exists:
+            result = axapi_call(module, session_url + '&method=slb.template.http.delete', json.dumps({'name': name}))
             changed = True
         else:
-            result = dict(msg="the acl was not present")
+            result = dict(msg="the http template was not present")
 
     # if the config has changed, save the config unless otherwise requested
     if changed and write_config:

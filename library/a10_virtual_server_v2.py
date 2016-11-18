@@ -28,7 +28,7 @@ version_added: 1.8
 short_description: Manage A10 Networks devices' virtual servers
 description:
     - Manage slb virtual server objects on A10 Networks devices via aXAPI
-author: "Mischa Peters (@mischapeters)"
+author: "Fadi Hafez (@a10-fhafez)"
 notes:
     - Requires A10 Networks aXAPI 2.1
 requirements: []
@@ -81,6 +81,12 @@ options:
     default: enable
     aliases: ['status']
     choices: ['enabled', 'disabled']
+  acl_id:
+    description:
+      - acl bound to the virtual server, used for wild card vips
+    required: false
+    default: null
+    aliases: ['acl_id']
   virtual_server_ports:
     description:
       - A list of ports to create for the virtual server. Each list item should be a
@@ -126,6 +132,21 @@ EXAMPLES = '''
       - port: 8080
         protocol: http
         status: disabled
+
+# Create a new wild card virtual server
+- a10_virtual_server: 
+    host: a10.mydomain.com
+    username: myadmin
+    password: mypassword
+    partition: RCSIN_PRV
+    virtual_server: vserver2
+    virtual_server_ip: 0.0.0.0
+    acl_id: 101
+    virtual_server_ports:
+      - port: 443
+        protocol: HTTPS
+        service_group: sg-443-https
+
 
 '''
 
@@ -181,6 +202,7 @@ def main():
             virtual_server_status=dict(type='str', default='enabled', aliases=['status'], choices=['enabled', 'disabled']),
             disable_vserver_on_condition=dict(type='str', choices=['0','1','2'], required=False, default='0'),
             redistribution_flagged=dict(type='str', choices=['True','False'], required=False, default='False'),
+            acl_id=dict(type='str', required=False, default=None),
             virtual_server_ports=dict(type='list', required=True),
         )
     )
@@ -201,6 +223,7 @@ def main():
     slb_virtual_status = module.params['virtual_server_status']
     slb_virtual_ports = module.params['virtual_server_ports']
     redistribution_flagged = module.params['redistribution_flagged']
+    acl_id = module.params['acl_id']
     disable_vserver_on_condition = module.params['disable_vserver_on_condition']
 
     if slb_virtual is None:
@@ -225,7 +248,6 @@ def main():
         json_post = {
             'virtual_server': {
                 'name': slb_virtual,
-                'address': slb_virtual_ip,
                 'status': axapi_enabled_disabled(slb_virtual_status),
                 'vport_list': slb_virtual_ports,
             }
@@ -238,8 +260,16 @@ def main():
             json_post['redistribution_flagged'] = 0 
 
 
+        # if disable on condition passed in
         if disable_vserver_on_condition:
             json_post['disable_vserver_on_condition'] = disable_vserver_on_condition
+
+        # if acl id was passed in bind it to the vip, otherwise assign the ip address passed in
+        if acl_id:
+            json_post['acl_id'] = acl_id
+        else:
+            json_post['address'] = slb_virtual_ip
+
 
         # before creating/updating we need to validate that any
         # service groups defined in the ports list exist since

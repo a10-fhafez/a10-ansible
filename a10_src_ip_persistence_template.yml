@@ -1,5 +1,5 @@
 ---
-- name: create an http template
+- name: create a src ip persistence template
   user: admin
   hosts: a10
   connection: local
@@ -19,15 +19,14 @@
     - debug:
         msg: "{{inventory_hostname}}"
 
-    - name: Create a TCP Template
-      a10_tcp_template_v2: 
+    - name: Create a src ip persistence Template
+      a10_src_ip_persistence_template_v2: 
         host: "{{inventory_hostname}}"
         username: "{{username}}"
         password: "{{password}}"
         validate_certs: no
         partition: "{{partition}}"
         state: "{{state}}"
-        name: faditcp
-        reset_fwd: True
-        reset_rec: True
-        force_del_timeout_unit: 1
+        name: my_src_ip_pers_templ
+        timeout: 20
+        match_type: 1
