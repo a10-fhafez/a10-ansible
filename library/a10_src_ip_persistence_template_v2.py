@@ -48,13 +48,13 @@ options:
     aliases: ['pass', 'pwd']
   partition:
     description:
-      - L3V partition to add the ACL to.  Will be added to 'shared' if not specified
+      - L3V partition to add the template to.  Will be added to 'shared' if not specified
     required: false
     default: null
     choices: []
   state:
     description:
-      - create, update or remove acl
+      - create, update or remove template
     required: false
     default: present
     choices: ['present', 'absent']
