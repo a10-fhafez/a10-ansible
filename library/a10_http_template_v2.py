@@ -58,6 +58,112 @@ options:
     required: false
     default: present
     choices: ['present', 'absent']
+  failover_url:
+    description: 
+    - Specifies the fallback URL to send in an HTTP 302 response when all real servers are down.
+    - length 0 to 255
+    required: false
+    default: ""
+  strict_transaction_switching:
+    description:
+    - Strict transaction switching.
+    required: false
+    default: 0
+  client_ip_insert:
+    description:
+      - Inserts the client’s source IP address into HTTP headers. "client_ip_insert" has sub elements.
+    required: false
+    default: {}
+  retry_http_request:
+    description:
+      - retry the http requests given the response codes provided
+    required: false
+    default: {}
+  log_retry:
+    description:
+      - logs https retries
+    required: false
+    default: 0
+  terminate_http1_1_client_when_request_has_condition_close:
+    description:
+      - Enable ACOS device to terminate HTTP 1.1 client connections when the “Connection close” header exists in the HTTP request.
+    required: false
+    default: 0
+  no_http_by_pass:
+    description:
+      - Redirects non-HTTP traffic to a specific service group.
+      - length is 0 to 63 characters
+    required: false
+    default: ""
+  logging_template:
+    description:
+      - Specifies a logging template to use for external logging of HTTP events of TCP
+      - length is 0 to 63 characters
+    required: false
+    default: ""
+  request_header_erase_list:
+    description:
+      - Erases the request header
+      - length of each name is 0 to 63 characters
+    required: false
+    default: []
+  response_header_erase_list:
+    description:
+      - Erases the response header
+      - length of each name is 0 to 63 characters
+    required: false
+    default: []
+  request_header_insert_list:
+    description:
+      - Inserts request header
+    required: false
+    default: []
+  response_header_insert_list:
+    description:
+      - Inserts response header
+    required: false
+    default: []
+  response_content_replace_list:
+    description:
+      - Replaces response content
+    required: false
+    default: []
+  host_hits_enable:
+    description:
+      - Enables host hit counters.
+    required: false
+    default: 0
+  url_switching_case_insensitive:
+    description:
+      - Enable case insensitive matching for URL switching rules.
+    required: false
+    default: 0
+  url_switching_hits_enable:
+    description:
+      - Enable URL hits.
+    required: false
+    default: 0
+  url_hash_persist:
+    description:
+      - Enables server stickiness based on has values.
+    required: false
+    default: {}
+  redirect_rewrite_list:
+    description:
+      - Modifies redirects sent by servers by rewriting the matching URL string to the specified value before sending the redirects to clients.
+    required: false
+    default: []
+  https_rewrite:
+    description:
+      - rewrite https
+      - range is 0 to 65535
+    required: false
+    default: 0
+  compression:
+    description:
+      - Offloads Web servers from CPU-intensive HTTP compression operations.
+    required: false
+    default: {}
   name:
     description:
       - name of the template
@@ -119,8 +225,28 @@ def main():
             state=dict(type='str', default='present', choices=['present', 'absent']),
             partition=dict(type='str', aliases=['partition','part'], required=False),
             name=dict(type='str', required=True),
-            url_switching_list=dict(type='list', default=[]),
-            host_switching_list=dict(type='list', default=[]),
+            failover_url=dict(type='str', required=False, default=None),
+            strict_transaction_switching=dict(type='bool', required=False, default=False),
+            client_ip_insert=dict(type='dict', required=False, default={}),
+            retry_http_request=dict(type='dict', required=False, default={}),
+            log_retry=dict(type='bool', required=False, default=False),
+            terminate_http1_1_client_when_request_has_condition_close=dict(type='bool', required=False, default=False),
+            no_http_by_pass=dict(type='str', required=False, default=None),
+            logging_template=dict(type='str', required=False, default=None),
+            request_header_erase_list=dict(type='list', required=False, default=[]),
+            response_header_erase_list=dict(type='list', required=False, default=[]),
+            request_header_insert_list=dict(type='list', required=False, default=[]),
+            response_header_insert_list=dict(type='list', required=False, default=[]),
+            response_content_replace_list=dict(type='list', required=False, default=[]),
+            host_switching_list=dict(type='list', required=False, default=[]),
+            host_hits_enable=dict(type='bool', required=False, default=False),
+            url_switching_list=dict(type='list', required=False, default=[]),
+            url_switching_case_insensitive=dict(type='bool', required=False, default=False),
+            url_switching_hits_enable=dict(type='bool', required=False, default=False),
+            url_hash_persist=dict(type='dict', required=False, default={}),
+            redirect_rewrite_list=dict(type='dict', required=False, default={}),
+            https_rewrite=dict(type='int', required=False, default=0),
+            compression=dict(type='dict', required=False, default={}),
         )
     )
 
@@ -135,12 +261,40 @@ def main():
     part = module.params['partition']
     state = module.params['state']
     write_config = module.params['write_config']
-    name = module.params['name']
 
-    url_switching_list = module.params['url_switching_list']
-    host_switching_list = module.params['host_switching_list']
+    # create a list of all possible parameters
+    param_names = ['name',
+        'failover_url',
+        'strict_transaction_switching',
+        'client_ip_insert',
+        'retry_http_request',
+        'log_retry',
+        'terminate_http1_1_client_when_request_has_condition_close',
+        'no_http_by_pass',
+        'logging_template',
+        'request_header_erase_list',
+        'response_header_erase_list',
+        'request_header_insert_list',
+        'response_header_insert_list',
+        'response_content_replace_list',
+        'host_switching_list',
+        'host_hits_enable',
+        'url_switching_list',
+        'url_switching_case_insensitive',
+        'url_switching_hits_enable',
+        'url_hash_persist',
+        'redirect_rewrite_list',
+        'https_rewrite',
+        'compression']
 
-    if name is None:
+
+    # put the parameters into a dictionary
+    params = {}
+    for curr_param_name in param_names:
+        params[curr_param_name] =  module.params[curr_param_name]
+    
+    # http_template name is mandatory
+    if params['name'] is None:
         module.fail_json(msg='name is required')
 
     axapi_base_url = 'https://%s/services/rest/V2.1/?format=json' % host
@@ -153,31 +307,75 @@ def main():
             module.fail_json(msg=result['response']['err']['msg'])
 
         # need to prepend the service_group with the partition name in url and host switching templates
-        if url_switching_list:
-            for item in url_switching_list:
+        if params['url_switching_list']:
+            for item in params['url_switching_list']:
                 item['service_group'] = '?' + part + '?' + item['service_group']
 
-        if host_switching_list:
-            for item in url_switching_list:
+        if params['host_switching_list']:
+            for item in params['url_switching_list']:
                 item['service_group'] = '?' + part + '?' + item['service_group']
 
 
-    # populate the json body for the creation of the http template
+    # bare base json body for the creation of the http template
     json_post = {
-        'http_template': {
-            'name': name,
+        "http_template": {
+            "name": params['name'],
+            "failover_url": "",
+            "strict_transaction_swiching": 0,
+            "client_ip_insert": {
+                "header": "",
+                "replace": 0
+            },
+            "retry_http_request": {
+                "http5xx": 0,
+                "http5xx_pre_request": 0
+            },
+            "log_retry": 0,
+            "terminate_http1_1_client_when_request_has_condition_close": 0,
+            "no_http_by_pass": "",
+            "logging_template": "",
+            "request_header_erase_list": [],
+            "response_header_erase_list": [],
+            "request_header_insert_list": [],
+            "response_header_insert_list": [],
+            "response_content_replace_list": [],
+            "host_switching_list": [],
+            "host_hits_enable": 0,
+            "url_switching_list": [],
+            "url_switching_case_insensitive": 0,
+            "url_switching_hits_enable": 0,
+            "url_hash_persist": {
+                "position": 1,
+                "length": 0,
+                "use_server_status": 0,
+                "offset": 0
+            },
+            "redirect_rewrite_list": [],
+            "https_rewrite": 0,
+            "compression": {
+                "status": 0,
+                "keep_accept_encoding": 0,
+                "level": 1,
+                "min_content_len": 0,
+                "content_type_list": [],
+                "exclude_content_type_list": [],
+                "exclude_url_list": [],
+                "auto_disable_on_high_cpu": 0
+            },
+            "request_line_case_insensitive": 0,
+            "keep_client_alive": 0,
+            "req_hdr_wait_time": 0
         }
     }
 
-    if url_switching_list:
-        json_post['url_switching_list'] = url_switching_list
-
-    if host_switching_list:
-        json_post['host_switching_list'] = host_switching_list
+    # modify the json body with only the parameters that have been passed in
+    for pn in param_names:
+        if params[pn]:
+            json_post['http_template'][pn] = params[pn]
 
    
     # check to see if this http_template exists
-    http_template_data = axapi_call(module, session_url + '&method=slb.template.http.search', json.dumps({'name': name}))
+    http_template_data = axapi_call(module, session_url + '&method=slb.template.http.search', json.dumps({'name': params['name']}))
     http_template_exists = not axapi_failure(http_template_data)
 
     changed = False
@@ -190,7 +388,7 @@ def main():
 
     elif state == 'absent':
         if http_template_exists:
-            result = axapi_call(module, session_url + '&method=slb.template.http.delete', json.dumps({'name': name}))
+            result = axapi_call(module, session_url + '&method=slb.template.http.delete', json.dumps({'name': params['name']}))
             changed = True
         else:
             result = dict(msg="the http template was not present")
