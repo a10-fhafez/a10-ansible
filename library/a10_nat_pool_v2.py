@@ -23,11 +23,11 @@ along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
 ---
-module: a10_acl
+module: a10_nat_pool
 version_added: 1.8
 short_description: Manage A10 Networks AX/SoftAX/Thunder/vThunder devices
 description:
-    - Manage extended acl objects on A10 Networks devices via aXAPI
+    - Manage extended nat pool objects on A10 Networks devices via aXAPI
 author: Fadi Hafez using works of Mischa Peters
 notes:
     - Requires A10 Networks aXAPI 2.1
@@ -54,41 +54,42 @@ options:
     choices: []
   state:
     description:
-      - create, update or remove acl
+      - create, update or remove nat pool
     required: false
     default: present
     choices: ['present', 'absent']
-  acl_id:
+  name:
     description:
-      - acl ID (100 - 199)
+      - name of pool
     required: true
-    aliases: ['acl']
-  remark_list:
+  start_ip_addr:
     description:
-      - List of remarks
-        Must contain a list of seq_num and remark_string pairs
+      - first ip address of the pool
+    required: true
+  end_ip_addr:
+    description:
+      - last ip address of the pool
+    required: true
+  netmask:
+    description:
+      - netmask for the pool
     required: false
-    default: null
-    aliases: ['rem']
-  item_list:
+    default: ""
+  gateway:
     description:
-      - List of extended ACL items
-        Must contain seq_num (range 1 - 8192)
-        Can contain 
-          - action (0=deny,1=permit,2=l3-vlan-fwd-disable, default:0), 
-            log (0=deny,1=permit,2=only log transparent sessions, default:0),
-            protocol (0=icmp,1=ip,2=tcp,3=udp, default:0)
-            src_ip, 
-            src_mask,
-            dst_ip,
-            dst_mask,
-            vlan_id,
-            src_port_start,
-            src_port_end,
-            dst_port_start,
-            dst_port_end
-    required: true
-    aliases: ['items']
+      - gateway of the pool
+    required: false
+    default: "0.0.0.0"
+  ha_group_id:
+    description:
+      - when HA is enabled.  Range is 0 to 31
+    required: false
+    default: 0
+  ip_rr:
+    description:
+      - use IP address round-robin behavior
+    required: false
+    default: 0
   write_config:
     description:
       - If C(yes), any changes will cause a write of the running configuration
@@ -111,44 +112,17 @@ options:
 '''
 
 EXAMPLES = '''
-# Create a new acl
-- a10_acl: 
+# Create a new nat pool
+- a10_nat_pool_v2: 
     host: a10.mydomain.com
     username: myadmin
     password: mypassword
-    acl_id: 100
-    remark_list:
-      - seq_num: 12
-        remark_string: "something to allow"
-      - seq_num: 16
-        remark_string: "something to block"
-    acl_item_list:
-      - seq_num: 1
-        action: 1
-        log: 1
-        protocol: 2
-        src_ip: "0.0.0.0"
-        src_mask: "255.255.255.255"
-        dst_ip: "0.0.0.0"
-        dst_mask: "255.255.255.255"
-        vlan_id: 0
+    name: natpool
+    start_ip_addr: 10.0.0.1
+    end_ip_addr: 10.0.0.2
+    netmask: 255.255.255.255
 
 '''
-
-VALID_ACL_REM_FIELDS = ['seq_num', 'remark_string']
-VALID_ACL_LIST_FIELDS = ['seq_num','action','log','protocol','src_ip','src_mask','dst_ip','dst_mask','vlan_id','name']
-
-def validate_keys(module, rem_or_list, keys):
-    if (rem_or_list == 'rem'):
-        VALID_FIELDS = VALID_ACL_REM_FIELDS
-    else:
-        VALID_FIELDS = VALID_ACL_LIST_FIELDS
-
-    for item in keys:
-        for key in item:
-            if key not in VALID_FIELDS:
-                module.fail_json(msg="invalid field (%s), must be one of: %s" % (key, ','.join(VALID_FIELDS)))
-
 
 def main():
     argument_spec = a10_argument_spec()
@@ -157,9 +131,13 @@ def main():
         dict(
             state=dict(type='str', default='present', choices=['present', 'absent']),
             partition=dict(type='str', aliases=['partition','part'], required=False),
-            acl_id=dict(type='int', aliases=['id'], required=True),
-            remark_list=dict(type='list', aliases=['rem'], default=[]),
-            acl_item_list=dict(type='list', aliases=['acl'], default=[]),
+            name=dict(type='str', aliases=['id'], required=True),
+            start_ip_addr=dict(type='str', required=True),
+            end_ip_addr=dict(type='str', required=True),
+            netmask=dict(type='str', required=True),
+            gateway=dict(type='str', required=False, default="0.0.0.0"),
+            ha_group_id=dict(type='int', required=False, default=0),
+            ip_rr=dict(type='int', required=False, default=0),
         )
     )
 
@@ -174,12 +152,16 @@ def main():
     part = module.params['partition']
     state = module.params['state']
     write_config = module.params['write_config']
-    acl_id = module.params['acl_id']
-    acl_remarks = module.params['remark_list']
-    acl_items = module.params['acl_item_list']
+    name = module.params['name']
+    start_ip_addr = module.params['start_ip_addr']
+    end_ip_addr = module.params['end_ip_addr']
+    netmask = module.params['netmask']
+    gateway = module.params['gateway']
+    ha_group_id = module.params['ha_group_id']
+    ip_rr = module.params['ip_rr']
 
-    if acl_id is None:
-        module.fail_json(msg='acl id is required')
+    if name is None:
+        module.fail_json(msg='nat pool id is required')
 
     axapi_base_url = 'https://%s/services/rest/V2.1/?format=json' % host
     session_url = axapi_authenticate(module, axapi_base_url, username, password)
@@ -190,37 +172,41 @@ def main():
         if (result['response']['status'] == 'fail'):
             module.fail_json(msg=result['response']['err']['msg'])
 
-    # validate the ports data structure
-    validate_keys(module, 'rem', acl_remarks)
-    validate_keys(module, 'items', acl_items)
-
     json_post = {
-        'ext_acl': {
-            'id': acl_id,
-            'acl_item_list': acl_items,
+        'pool': {
+            'name': name,
+            'start_ip_addr': start_ip_addr,
+            'end_ip_addr': end_ip_addr,
+            'netmask': netmask,
         }
     }
 
-    if acl_remarks and len(acl_remarks) > 0:
-        json_post['ext_acl_list']['remark_list'] = acl_remarks
+    if len(gateway) > 0:
+        json_post['pool']['gateway'] = gateway
 
-    acl_data = axapi_call(module, session_url + '&method=network.acl.ext.search', json.dumps({'id': acl_id}))
-    acl_exists = not axapi_failure(acl_data)
+    if ha_group_id > 0:
+        json_post['pool']['ha_group_id'] = ha_group_id
+
+    if ip_rr > 0:
+        json_post['pool']['ip_rr'] = ip_rr
+
+    natpool_data = axapi_call(module, session_url + '&method=nat.pool.search', json.dumps({'name': name}))
+    natpool_exists = not axapi_failure(natpool_data)
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=network.acl.ext.create', json.dumps(json_post))
+        result = axapi_call(module, session_url + '&method=nat.pool.create', json.dumps(json_post))
         if axapi_failure(result):
-            module.fail_json(msg="failed to create the acl: %s" % result['response']['err']['msg'])
+            module.fail_json(msg="failed to create the nat pool: %s" % result['response']['err']['msg'])
 
         changed = True
 
     elif state == 'absent':
-        if acl_exists:
-            result = axapi_call(module, session_url + '&method=network.acl.ext.delete', json.dumps({'id': acl_id}))
+        if natpool_exists:
+            result = axapi_call(module, session_url + '&method=nat.pool.delete', json.dumps({'name': name}))
             changed = True
         else:
-            result = dict(msg="the acl was not present")
+            result = dict(msg="the nat pool was not present")
 
     # if the config has changed, save the config unless otherwise requested
     if changed and write_config:

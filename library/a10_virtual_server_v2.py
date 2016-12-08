@@ -150,7 +150,7 @@ EXAMPLES = '''
 
 '''
 
-VALID_PORT_FIELDS = ['port', 'protocol', 'service_group', 'status','tcp_template','tcp_proxy_template','ssl_session_id_persistence_template','ha_connection_mirror','extended_stats','source_nat','cookie_persistence_template','aflex_list','http_template','client_ssl_template','server_ssl_template','acl_natpool_binding_list']
+VALID_PORT_FIELDS = ['port', 'protocol', 'service_group', 'status','tcp_template','tcp_proxy_template','ssl_session_id_persistence_template','ha_connection_mirror','extended_stats','source_nat','cookie_persistence_template','aflex_list','http_template','client_ssl_template','server_ssl_template','acl_natpool_binding_list','source_ip_persistence_template']
 
 def validate_ports(module, ports):
     for item in ports:

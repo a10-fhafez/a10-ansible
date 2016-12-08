@@ -414,8 +414,18 @@ def main():
             json_post['health_monitor']['compound'] = compound
        
         elif external:
-            json_post['health_monitor']['type'] = 18
-            json_post['health_monitor']['external'] = external
+
+            # if a program has been passed in then make sure the program being run in this health monitor actually exists already
+            if not 'program' in external:
+                module.fail_json(msg="you must include a program when creating an external health monitor")
+            else:
+                result = axapi_call(module, session_url + '&method=slb.hm.external.search', json.dumps({'name': external['program']}))
+
+                if axapi_failure(result):
+                    module.fail_json(msg="failed to create the health monitor: %s" % result['response']['err']['msg'])
+
+                json_post['health_monitor']['type'] = 18
+                json_post['health_monitor']['external'] = external
        
         else:
             module.fail_json(msg="you must specify either icmp, tcp, udp, http, https, ftp, smtp, pop3 etc.")
