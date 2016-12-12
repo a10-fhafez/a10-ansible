@@ -6,7 +6,7 @@
   gather_facts: no
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
   vars_prompt:
     - name: username
       prompt: username

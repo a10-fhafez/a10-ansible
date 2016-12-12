@@ -6,7 +6,7 @@
   gather_facts: no
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
   vars_prompt:
     - name: username
       prompt: username
@@ -19,7 +19,7 @@
     - debug:
         msg: "{{inventory_hostname}}"
 
-    - name: Create an ACL
+    - name: Upload an SSL key
       a10_ssl_v2: 
         host: "{{inventory_hostname}}"
         username: "{{username}}"
@@ -29,4 +29,4 @@
         state: "{{state}}"
         file_name: cert_app
         file_type: key
-        method: download
+        method: upload

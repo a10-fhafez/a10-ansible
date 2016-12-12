@@ -77,13 +77,35 @@ options:
     description:
       - consecutive passes required
     required: false
+    choices: [0, 1]
     default: 1
   disable_after_down:
     description:
       - keep disabled when down
     required: false
     default: false
-    choices: ['0', '1']
+    choices: [0, 1]
+  override_ipv4: 
+    description:
+      - override the destination IPv4
+    required: false
+    default: "0.0.0.0"
+  override_ipv6: 
+    description:
+      - override the destination IPv6
+    required: false
+    default: "::"
+  override_port:
+     description:
+      - override the destination L4 port
+    required: false
+    default: 0
+  strictly_retry:
+    description:
+      - do a strictly retry
+    required: false
+    choices: [0, 1]
+    default: 0
   icmp:
     description:
       - make a icmp health monitor
@@ -239,12 +261,16 @@ def main():
             state=dict(type='str', default='present', choices=['present', 'absent']),
             partition=dict(type='str', aliases=['partition','part'], required=False),
             hm_name=dict(type='str', aliases=['hm'], required=True),
-            interval=dict(type='str', default='5', aliases=['int']),
-            timeout=dict(type='str', default='5'),
-            retry=dict(type='str', default='3'),
-            disable_after_down=dict(type='str', default='1', choices=['0','1']),
-            consec_pass_reqd=dict(type='str', default='1'),
-            icmp=dict(type='list', default=[]),
+            interval=dict(type='int', default=5, aliases=['int']),
+            timeout=dict(type='int', default=5),
+            retry=dict(type='int', default=3),
+            strictly_retry=dict(type='int', default=0, choices=[0, 1]),
+            override_ipv4=dict(type='str', default='0.0.0.0'),
+            override_ipv6=dict(type='str', default='::'),
+            override_port=dict(type='int', default=0),
+            disable_after_down=dict(type='int', default=0, choices=[0, 1]),
+            consec_pass_reqd=dict(type='int', default=1),
+            icmp=dict(type='dict', default={}),
             tcp=dict(type='dict', default={}),
             udp=dict(type='dict', default={}),
             http=dict(type='dict', default={}),
@@ -278,36 +304,47 @@ def main():
     password = module.params['password']
     part = module.params['partition']
     write_config = module.params['write_config']
-    hm_name = module.params['hm_name']
-    interval = module.params['interval']
-    timeout = module.params['timeout']
-    retry = module.params['retry']
-    disable_after_down = module.params['disable_after_down']
-    consec_pass_reqd = module.params['consec_pass_reqd']
-    icmp = module.params['icmp']
-    tcp = module.params['tcp']
-    udp = module.params['udp']
-    http = module.params['http']
-    https = module.params['https']
-    ftp = module.params['ftp']
-    smtp = module.params['smtp']
-    pop3 = module.params['pop3']
-    snmp = module.params['snmp']
-    dns = module.params['dns']
-    radius = module.params['radius']
-    ldap = module.params['ldap']
-    rtsp = module.params['rtsp']
-    sip = module.params['sip']
-    ntp = module.params['ntp']
-    imap = module.params['imap']
-    database = module.params['database']
-    compound = module.params['compound']
-    external = module.params['external']
-    state = module.params['state']
 
-    # the only required parameter is hm_name
-    if hm_name is None:
-        module.fail_json(msg='hm_name is required')
+    # create a list of all possible parameters
+    param_names = ['hm_name',
+        'interval',
+        'timeout',
+        'retry',
+        'disable_after_down',
+        'consec_pass_reqd',
+        'strictly_retry',
+        'override_ipv4',
+        'override_ipv6',
+        'override_port',
+        'icmp',
+        'tcp',
+        'udp',
+        'http',
+        'https',
+        'ftp',
+        'smtp',
+        'pop3',
+        'snmp',
+        'dns',
+        'radius',
+        'ldap',
+        'rtsp',
+        'sip',
+        'ntp',
+        'imap',
+        'database',
+        'compound',
+        'external']
+
+
+    # put the parameters into a dictionary
+    params = {}
+    for curr_param_name in param_names:
+        params[curr_param_name] =  module.params[curr_param_name]
+
+    # hm_name name is mandatory
+    if params['hm_name'] is None:
+        module.fail_json(msg='name is required')
 
     axapi_base_url = 'https://%s/services/rest/V2.1/?format=json' % host
     session_url = axapi_authenticate(module, axapi_base_url, username, password)
@@ -322,125 +359,192 @@ def main():
     if state == 'absent':
         json_post = {
             'health_monitor': {
-                'name': hm_name,
+                'name': params['hm_name'],
             }
         }
 
     else:
 
-        # build the json_post
+        # bare base json body for the creation of any health monitor
         json_post = {
-            'health_monitor': {
-                'name': hm_name,
-                'interval': interval,
-                'timeout': timeout,
-                'retry': retry,
-                'disable_after_down': disable_after_down,
-                'consec_pass_reqd': consec_pass_reqd,
+            "health_monitor": {
+                "name": params['hm_name'],
+                "interval": params['interval'],
+                "timeout": params['timeout'],
+                "retry": params['retry'],
+                "disable_after_down": params['disable_after_down'],
+                "consec_pass_reqd": params['consec_pass_reqd'],
+                "strictly_retry": params['strictly_retry'],
+                "override_ipv4": params['override_ipv4'],
+                "override_ipv6": params['override_ipv6'],
+                "override_port": params['override_port'],
             }
         }
- 
+
         # add the right type to the json_post (there are 0 to 18 types)
-        if icmp:
+
+        # if icmp was listed in the task, even if its an empty dict
+        if params['icmp'] or params['icmp'] == {}:
             json_post['health_monitor']['type'] = 0
-            json_post['health_monitor']['icmp'] = icmp
+            json_post['health_monitor']['icmp'] = {
+                "mode": 0,
+                "passive": {
+                    "status": 0,
+                    "status_code_2xx": 0,
+                    "threshold": 75,
+                    "sample_threshold": 50,
+                    "interval": 10
+                }
+            }
 
-        elif tcp:
+            # override icmp default parameters with the ones provided
+            for icmp_item in params['icmp']:
+                json_post['health_monitor']['icmp'][icmp_item] = params['icmp'][icmp_item]
+
+        elif params['tcp']:
             json_post['health_monitor']['type'] = 1
-            json_post['health_monitor']['tcp'] = tcp
+            json_post['health_monitor']['tcp'] = params['tcp']
 
-        elif udp:
+        elif params['udp']:
             json_post['health_monitor']['type'] = 2
-            json_post['health_monitor']['udp'] = udp
+            json_post['health_monitor']['udp'] = params['udp']
        
-        elif http:
+        elif params['http']:
             json_post['health_monitor']['type'] = 3
-            json_post['health_monitor']['http'] = http
+            json_post['health_monitor']['http'] = {
+                "port": 0,
+                "host": "",
+                "url": "",
+                "user": "",
+                "password": "",
+                "expect_code": "200",
+                "maintenance_code": "",
+                "passive": {
+                    "status": 0,
+                    "status_code_2xx": 0,
+                    "threshold": 75,
+                    "sample_threshold": 50,
+                    "interval": 10
+                }
+            }
+            for http_item in params['http']:
+                json_post['health_monitor']['http'][http_item] = params['http'][http_item]
        
-        elif https:
+        elif params['https']:
             json_post['health_monitor']['type'] = 4
-            json_post['health_monitor']['https'] = https
+            json_post['health_monitor']['https'] = {
+                "port": 443,
+                "host": "",
+                "url": "GET /",
+                "user": "",
+                "password": "",
+                "expect_code": "",
+                "maintenance_code": "",
+                "sslv2hello_status": 0,
+                "cert_name": "",
+                "key_name": "",
+                "pass_phrase": "",
+                "passive": {
+                    "status": 0,
+                    "status_code_2xx": 0,
+                    "threshold": 75,
+                    "sample_threshold": 50,
+                    "interval": 10
+                }
+            }
+
+            for https_item in params['https']:
+                json_post['health_monitor']['https'][https_item] = params['https'][https_item]
        
-        elif ftp:
+        elif params['ftp']:
             json_post['health_monitor']['type'] = 5
-            json_post['health_monitor']['ftp'] = ftp
+            json_post['health_monitor']['ftp'] = params['ftp']
        
-        elif smtp:
+        elif params['smtp']:
             json_post['health_monitor']['type'] = 6
-            json_post['health_monitor']['smtp'] = smtp
+            json_post['health_monitor']['smtp'] = params['smtp']
        
-        elif pop3:
+        elif params['pop3']:
             json_post['health_monitor']['type'] = 7
-            json_post['health_monitor']['pop3'] = pop3
+            json_post['health_monitor']['pop3'] = params['pop3']
        
-        elif snmp:
+        elif params['snmp']:
             json_post['health_monitor']['type'] = 8
-            json_post['health_monitor']['snmp'] = snmp
+            json_post['health_monitor']['snmp'] = params['snmp']
        
-        elif dns:
+        elif params['dns']:
             json_post['health_monitor']['type'] = 9
-            json_post['health_monitor']['dns'] = dns
+            json_post['health_monitor']['dns'] = params['dns']
        
-        elif radius:
+        elif params['radius']:
             json_post['health_monitor']['type'] = 10
-            json_post['health_monitor']['radius'] = radius
+            json_post['health_monitor']['radius'] = params['radius']
        
-        elif ldap:
+        elif params['ldap']:
             json_post['health_monitor']['type'] = 11
-            json_post['health_monitor']['ldap'] = ldap
+            json_post['health_monitor']['ldap'] = params['ldap']
        
-        elif rtsp:
+        elif params['rtsp']:
             json_post['health_monitor']['type'] = 12
-            json_post['health_monitor']['rtsp'] = rtsp
+            json_post['health_monitor']['rtsp'] = params['rtsp']
        
-        elif sip:
+        elif params['sip']:
             json_post['health_monitor']['type'] = 13
-            json_post['health_monitor']['sip'] = sip
+            json_post['health_monitor']['sip'] = params['sip']
        
-        elif ntp:
+        elif params['ntp']:
             json_post['health_monitor']['type'] = 14
-            json_post['health_monitor']['ntp'] = ntp
+            json_post['health_monitor']['ntp'] = params['ntp']
        
-        elif imap:
+        elif params['imap']:
             json_post['health_monitor']['type'] = 15
-            json_post['health_monitor']['imap'] = imap
+            json_post['health_monitor']['imap'] = params['imap']
        
-        elif database:
+        elif params['database']:
             json_post['health_monitor']['type'] = 16
-            json_post['health_monitor']['database'] = database
+            json_post['health_monitor']['database'] = params['database']
        
-        elif compound:
+        elif params['compound']:
             json_post['health_monitor']['type'] = 17
-            json_post['health_monitor']['compound'] = compound
+            json_post['health_monitor']['compound'] = params['compound']
        
-        elif external:
+        elif params['external']:
 
             # if a program has been passed in then make sure the program being run in this health monitor actually exists already
-            if not 'program' in external:
+            if not 'program' in params['external']:
                 module.fail_json(msg="you must include a program when creating an external health monitor")
             else:
-                result = axapi_call(module, session_url + '&method=slb.hm.external.search', json.dumps({'name': external['program']}))
+                result = axapi_call(module, session_url + '&method=slb.hm.external.search', json.dumps({'name': params['external']['program']}))
 
                 if axapi_failure(result):
                     module.fail_json(msg="failed to create the health monitor: %s" % result['response']['err']['msg'])
 
                 json_post['health_monitor']['type'] = 18
-                json_post['health_monitor']['external'] = external
+                json_post['health_monitor']['external'] = params['external']
        
         else:
-            module.fail_json(msg="you must specify either icmp, tcp, udp, http, https, ftp, smtp, pop3 etc.")
+            module.fail_json(msg="you must include one of icmp, tcp, udp, http, https, ftp, smtp, pop3 etc.")
 
 
     changed = False
 
     # present means the health monitor is being added
     if state == 'present':
-        if not hm_name:
+        if not params['hm_name']:
             module.fail_json(msg='you must specify a name when creating a health monitor')
 
-        result = axapi_call(module, session_url + '&method=slb.hm.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the health monitor: %s" % result['response']['err']['msg'])
+        # check if the health monitor already exists
+        hm_data = axapi_call(module, session_url + '&method=slb.hm.search', json.dumps({'name': params['hm_name']}))
+        hm_exists = not axapi_failure(hm_data)
+
+        if not hm_exists:
+            result = axapi_call(module, session_url + '&method=slb.hm.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the health monitor: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=slb.hm.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to update the health monitor: %s" % result['response']['err']['msg'])
 
         changed = True
 

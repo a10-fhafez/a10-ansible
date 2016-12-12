@@ -202,16 +202,22 @@ def main():
     }
 
     if acl_remarks and len(acl_remarks) > 0:
-        json_post['ext_acl_list']['remark_list'] = acl_remarks
+        json_post['ext_acl']['remark_list'] = acl_remarks
 
     acl_data = axapi_call(module, session_url + '&method=network.acl.ext.search', json.dumps({'id': acl_id}))
     acl_exists = not axapi_failure(acl_data)
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=network.acl.ext.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the acl: %s" % result['response']['err']['msg'])
+
+        if not acl_exists:
+            result = axapi_call(module, session_url + '&method=network.acl.ext.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the acl: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=network.acl.ext.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the acl: %s" % result['response']['err']['msg'])
 
         changed = True
 

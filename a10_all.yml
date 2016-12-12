@@ -33,7 +33,7 @@
         retry: 2
         disable_after_down: 0
         consec_pass_reqd: 1
-        icmp: ""
+        icmp: {}
 
     - name: Create an http health monitor
       a10_health_monitor_v2: 
@@ -324,6 +324,7 @@
         reset_fwd: True
         reset_rec: True
         force_del_timeout_unit: 1
+        idle_timeout: 60
 
     - name: Create a wild card vip
       a10_virtual_server_v2:

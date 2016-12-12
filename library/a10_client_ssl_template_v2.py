@@ -370,9 +370,14 @@ def main():
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=slb.template.client_ssl.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the client ssl template: %s" % result['response']['err']['msg'])
+        if not client_ssl_template_exists:
+            result = axapi_call(module, session_url + '&method=slb.template.client_ssl.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the client ssl template: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=slb.template.client_ssl.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the client ssl template: %s" % result['response']['err']['msg'])
 
         changed = True
 

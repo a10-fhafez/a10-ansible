@@ -181,23 +181,57 @@ def main():
     part = module.params['partition']
     state = module.params['state']
     write_config = module.params['write_config']
-    name = module.params['name']
-
-    match_type = module.params['match_type']
-    match_all = module.params['match_all']
-    expire_exist = module.params['expire_exist']
-    expire = module.params['expire']
-    cookie_name = module.params['cookie_name']
-    domain = module.params['domain']
-    path = module.params['path']
-    insert_always = module.params['insert_always']
-    dont_honor_conn = module.params['dont_honor_conn']
-
-    if name is None:
-        module.fail_json(msg='name is required')
 
     axapi_base_url = 'https://%s/services/rest/V2.1/?format=json' % host
     session_url = axapi_authenticate(module, axapi_base_url, username, password)
+
+    # create a list of all possible parameters
+    param_names = ['name',
+        'match_type',
+        'match_all',
+        'expire_exist',
+        'expire',
+        'cookie_name',
+        'domain',
+        'path',
+        'insert_always',
+        'dont_honor_conn']
+
+
+    # put the parameters into a dictionary
+    params = {}
+    for curr_param_name in param_names:
+        params[curr_param_name] =  module.params[curr_param_name]
+
+
+    # bare base json body for the creation of the cookie persistence template
+    json_post = {
+        "cookie_persistence_template": {
+            "name": "cookie_persistence_template",
+            "expire_exist": 0,
+            "expire": 0,
+            "cookie_name": "",
+            "domain": "",
+            "path": "",
+            "match_type": 0,
+            "insert_always": 0,
+            "dont_honor_conn": 0
+        }
+    }
+
+    # modify the json body with only the parameters that have been passed in
+    for pn in param_names:
+        if params[pn]:
+            if params[pn] == True:
+                json_post['cookie_persistence_template'][pn] = 1
+            else:
+                json_post['cookie_persistence_template'][pn] = params[pn]
+        elif params[pn] == False:
+            json_post['cookie_persistence_template'][pn] = 0
+
+    if params['name'] is None:
+        module.fail_json(msg='name is required')
+
 
     # change partitions if we need to
     if part:
@@ -205,56 +239,30 @@ def main():
         if (result['response']['status'] == 'fail'):
             module.fail_json(msg=result['response']['err']['msg'])
 
-    # populate the json body for the creation of the http template
-    json_post = {
-        'cookie_persistence_template': {
-            'name': name,
-        }
-    }
-
-    if match_type:
-        json_post['match_type'] = match_type
-
-    if match_all:
-        json_post['match_all'] = match_all
-
-    if expire_exist:
-        json_post['expire_exist'] = expire_exist
-
-    if expire:
-        json_post['expire'] = expire
-
-    if cookie_name:
-        json_post['cookie_name'] = cookie_name
-
-    if domain:
-        json_post['domain'] = domain
-   
-    if path:
-        json_post['path'] = path
-
-    if insert_always:
-        json_post['insert_always'] = insert_always
-
-    if dont_honor_conn:
-        json_post['dont_honor_conn'] = dont_honor_conn
-
 
     # check to see if this cookie persistence template exists
-    cookie_persistence_template_data = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.search', json.dumps({'name': name}))
+    cookie_persistence_template_data = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.search', json.dumps({'name': params['name']}))
     cookie_persistence_template_exists = not axapi_failure(cookie_persistence_template_data)
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the cookie persistence template: %s" % result['response']['err']['msg'])
+
+        # if it doesn't exist then create it, otherwise update it
+        if not cookie_persistence_template_exists:
+            result = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the cookie persistence template: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the cookie persistence template: %s" % result['response']['err']['msg'])
+
 
         changed = True
 
     elif state == 'absent':
         if cookie_persistence_template_exists:
-            result = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.delete', json.dumps({'name': name}))
+            result = axapi_call(module, session_url + '&method=slb.template.cookie_persistence.delete', json.dumps({'name': params['name']}))
             changed = True
         else:
             result = dict(msg="the cookie persistence template was not present")

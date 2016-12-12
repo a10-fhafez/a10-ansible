@@ -191,19 +191,27 @@ def main():
         if (result['response']['status'] == 'fail'):
             module.fail_json(msg=result['response']['err']['msg'])
 
+    aflex_data = axapi_call(module, session_url + '&method=slb.aflex.search', json.dumps({'name': file_name}))
+    aflex_exists = not axapi_failure(aflex_data)
+
     changed = False
     if state == 'present':
 
         if method == "upload":
 
-            if os.path.isfile(file_name) is False:
-                module.fail_json(msg='File does not exist')
-            else:
-                result = uploadAflex(session_url + '&method=slb.aflex.upload&name=' + file_name, 'upload', file_name)
-            if axapi_failure(result):
-                module.fail_json(msg="failed to upload the aflex: %s" % result['response']['err']['msg'])
+            if not aflex_exists:
+
+                if os.path.isfile(file_name) is False:
+                    module.fail_json(msg='File does not exist')
+                else:
+                    result = uploadAflex(session_url + '&method=slb.aflex.upload&name=' + file_name, 'upload', file_name)
+                if axapi_failure(result):
+                    module.fail_json(msg="failed to upload the aflex: %s" % result['response']['err']['msg'])
+
+                changed = True
 
         elif method == "download":
+
             result = axapi_call(module, session_url + '&method=slb.aflex.download&name=' + file_name, '')
             if ('response' in result and result['response']['status'] == 'fail' and 'failed' in result['response']['err']['msg']):
                 module.fail_json(msg=result['response']['err']['msg'])

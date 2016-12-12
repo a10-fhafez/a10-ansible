@@ -30,6 +30,6 @@
         name: my_http_templ
         compression: {}
         url_switching_list: 
-          - url: english
+          - url: french
             service_group: sg-80-tcp
             match_method: 0

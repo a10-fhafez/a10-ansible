@@ -6,7 +6,7 @@
   gather_facts: no
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
   vars_prompt:
     - name: username
       prompt: username
@@ -30,3 +30,5 @@
         name: my_src_ip_pers_templ
         cookie_name: testcookie
         match_type: 1
+        expire_exist: 1
+        expire: 120

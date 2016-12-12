@@ -236,8 +236,10 @@ def main():
     if init_win_size is not None:
         json_post['tcp_template']['init_win_size'] = init_win_size
 
-    if half_close_idle_timeout is not None:
-        json_post['tcp_template']['half_close_idle_timeout'] = half_close_idle_timeout
+    if half_close_idle_timeout is not None or half_close_idle_timeout == False:
+        json_post['tcp_template']['half_close_idle_timeout'] = 0
+    else:
+        json_post['tcp_template']['half_close_idle_timeout'] = 1
 
     if reset_fwd is None or reset_fwd == False:
         json_post['tcp_template']['reset_fwd'] = 0
@@ -261,9 +263,15 @@ def main():
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=slb.template.tcp.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the tcp template: %s" % result['response']['err']['msg'])
+
+        if not tcp_template_exists:
+            result = axapi_call(module, session_url + '&method=slb.template.tcp.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the tcp template: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=slb.template.tcp.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the tcp template: %s" % result['response']['err']['msg'])
 
         changed = True
 

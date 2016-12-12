@@ -5,7 +5,7 @@
   gather_facts: no
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
   vars_prompt:
     - name: username
       prompt: username
@@ -25,7 +25,7 @@
         password: "{{password}}"
         partition: "{{partition}}"
         virtual_server: vs_server1
-        virtual_server_ip: 1.1.1.1
+        virtual_server_ip: FE00::1
         redistribution_flagged: True
         disable_vserver_on_condition: 0
         virtual_server_ports:

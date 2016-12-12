@@ -257,9 +257,15 @@ def main():
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=slb.template.src_ip_persistence.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the src ip persistence template: %s" % result['response']['err']['msg'])
+
+        if not src_ip_persistence_template_exists:
+            result = axapi_call(module, session_url + '&method=slb.template.src_ip_persistence.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the src ip persistence template: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=slb.template.src_ip_persistence.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the src ip persistence template: %s" % result['response']['err']['msg'])
 
         changed = True
 

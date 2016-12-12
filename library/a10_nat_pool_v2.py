@@ -195,9 +195,15 @@ def main():
 
     changed = False
     if state == 'present':
-        result = axapi_call(module, session_url + '&method=nat.pool.create', json.dumps(json_post))
-        if axapi_failure(result):
-            module.fail_json(msg="failed to create the nat pool: %s" % result['response']['err']['msg'])
+
+        if not natpool_exists:
+            result = axapi_call(module, session_url + '&method=nat.pool.create', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the nat pool: %s" % result['response']['err']['msg'])
+        else:
+            result = axapi_call(module, session_url + '&method=nat.pool.update', json.dumps(json_post))
+            if axapi_failure(result):
+                module.fail_json(msg="failed to create the nat pool: %s" % result['response']['err']['msg'])
 
         changed = True
 
