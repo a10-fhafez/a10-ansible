@@ -30,7 +30,29 @@
         retry: 5
         disable_after_down: 0
         consec_pass_reqd: 1
-        icmp: {}
+        tcp:
+          port: 80
+        
+
+    - name: Create a tcp health monitor
+      a10_health_monitor_v2: 
+        validate_certs: no
+        state: "{{state}}"
+        host: "{{inventory_hostname}}"
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
+        hm_name: hm_tcp
+        interval: 4
+        timeout: 4
+        retry: 5
+        disable_after_down: 0
+        consec_pass_reqd: 1
+        tcp:
+            port: 8080
+            half_open: 0
+            send: "OPTIONS / HTTP/1.1\r\nConnection: Close\r\n\r\n"
+            receive: "HTTP/1.1 200 OK"
 
     - name: Create a health monitor
       a10_health_monitor_v2: 
@@ -120,5 +142,4 @@
         consec_pass_reqd: 1
         https:
           port: 8443
-          url: "GET /blah/blah/nothing.html"
           expect_code: 200

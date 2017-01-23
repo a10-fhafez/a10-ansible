@@ -136,7 +136,7 @@ EXAMPLES = '''
 '''
 
 VALID_ACL_REM_FIELDS = ['seq_num', 'remark_string']
-VALID_ACL_LIST_FIELDS = ['seq_num','action','log','protocol','src_ip','src_mask','dst_ip','dst_mask','vlan_id','name']
+VALID_ACL_LIST_FIELDS = ['seq_num','action','log','protocol','src_ip','src_mask','dst_ip','dst_mask','vlan_id','name','dst_port_start','dst_port_end','src_port_start','src_port_end']
 
 def validate_keys(module, rem_or_list, keys):
     if (rem_or_list == 'rem'):

@@ -6,7 +6,7 @@
   gather_facts: no
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
   vars_prompt:
     - name: username
       prompt: username
@@ -14,7 +14,6 @@
     - name: password
       prompt: password
       private: yes
-
 
 
   tasks:
@@ -29,15 +28,14 @@
         state: present
         validate_certs: no
         partition: "{{partition}}"
-        server_name: rip_server1
-        server_ip: 1.1.1.100
+        server_name: "rip_server_v6_1"
+        server_ip: "fe80::100"
         server_ports:
             - port_num: 80
               protocol: tcp
-#              health_monitor: fadi
+              health_monitor: "no"
             - port_num: 8443
               protocol: tcp
-#              health_monitor: fadi
 
     - name: Create another realserver
       a10_server_v2:
@@ -46,12 +44,10 @@
         password: "{{password}}"
         validate_certs: no
         partition: "{{partition}}"
-        server_name: rip_server2
-        server_ip: 1.1.1.101
+        server_name: "rip_server_v6_2"
+        server_ip: "fe80::101"
         server_ports:
             - port_num: 8080
               protocol: tcp
-#              health_monitor: fadi
             - port_num: 443
               protocol: tcp
-#              health_monitor: fadi

@@ -270,8 +270,8 @@ def main():
             override_port=dict(type='int', default=0),
             disable_after_down=dict(type='int', default=0, choices=[0, 1]),
             consec_pass_reqd=dict(type='int', default=1),
-            icmp=dict(type='dict', default={}),
-            tcp=dict(type='dict', default={}),
+            icmp=dict(type='dict', default=None),
+            tcp=dict(type='dict', default=None),
             udp=dict(type='dict', default={}),
             http=dict(type='dict', default={}),
             https=dict(type='dict', default={}),
@@ -346,13 +346,15 @@ def main():
     if params['hm_name'] is None:
         module.fail_json(msg='name is required')
 
-    axapi_base_url = 'https://%s/services/rest/V2.1/?format=json' % host
+    axapi_base_url = 'http://%s/services/rest/V2.1/?format=json' % host
     session_url = axapi_authenticate(module, axapi_base_url, username, password)
 
     # change partitions if we need to
     if part:
         result = axapi_call(module, session_url + '&method=system.partition.active', json.dumps({'name': part}))
         if (result['response']['status'] == 'fail'):
+            # log out of the session nicely and exit with error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg=result['response']['err']['msg'])
 
     # absent means to delete the health monitor (only the hm_name is required)
@@ -401,9 +403,18 @@ def main():
             for icmp_item in params['icmp']:
                 json_post['health_monitor']['icmp'][icmp_item] = params['icmp'][icmp_item]
 
-        elif params['tcp']:
+        elif params['tcp'] or params['tcp'] == {}:
             json_post['health_monitor']['type'] = 1
-            json_post['health_monitor']['tcp'] = params['tcp']
+            json_post['health_monitor']['tcp'] = {
+                "port": 0,
+                "half_open": 0,
+                "send": "",
+                "receive": ""
+            }
+
+            # override tcp default parameters with the ones provided
+            for tcp_item in params['tcp']:
+                json_post['health_monitor']['tcp'][tcp_item] = params['tcp'][tcp_item]
 
         elif params['udp']:
             json_post['health_monitor']['type'] = 2
@@ -512,17 +523,23 @@ def main():
 
             # if a program has been passed in then make sure the program being run in this health monitor actually exists already
             if not 'program' in params['external']:
+                # log out of the session nicely and exit with error
+                axapi_call(module, session_url + '&method=session.close')
                 module.fail_json(msg="you must include a program when creating an external health monitor")
             else:
                 result = axapi_call(module, session_url + '&method=slb.hm.external.search', json.dumps({'name': params['external']['program']}))
 
                 if axapi_failure(result):
+                    # log out of the session nicely and exit with error
+                    axapi_call(module, session_url + '&method=session.close')
                     module.fail_json(msg="failed to create the health monitor: %s" % result['response']['err']['msg'])
 
                 json_post['health_monitor']['type'] = 18
                 json_post['health_monitor']['external'] = params['external']
        
         else:
+            # log out of the session nicely and exit with error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg="you must include one of icmp, tcp, udp, http, https, ftp, smtp, pop3 etc.")
 
 
@@ -531,19 +548,36 @@ def main():
     # present means the health monitor is being added
     if state == 'present':
         if not params['hm_name']:
+            # log out of the session nicely and exit with error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg='you must specify a name when creating a health monitor')
 
         # check if the health monitor already exists
         hm_data = axapi_call(module, session_url + '&method=slb.hm.search', json.dumps({'name': params['hm_name']}))
         hm_exists = not axapi_failure(hm_data)
+        hm_data_str = json.dumps(hm_data)
+
+        # this is the makeshift way to detecting that a health monitor exists
+        # because when a health monitor contains carriage returns then the traditional axapi_failure will always return True
+        if "response" in hm_data_str and "fail" in hm_data_str and "code" in hm_data_str:
+            hm_exists = False
+        else:
+            hm_exists = True
 
         if not hm_exists:
+## DEBUGGING! ##
+#            module.fail_json(msg=hm_data)
+###########
             result = axapi_call(module, session_url + '&method=slb.hm.create', json.dumps(json_post))
             if axapi_failure(result):
+                # log out of the session nicely and exit with error
+                axapi_call(module, session_url + '&method=session.close')
                 module.fail_json(msg="failed to create the health monitor: %s" % result['response']['err']['msg'])
         else:
             result = axapi_call(module, session_url + '&method=slb.hm.update', json.dumps(json_post))
             if axapi_failure(result):
+                # log out of the session nicely and exit with error
+                axapi_call(module, session_url + '&method=session.close')
                 module.fail_json(msg="failed to update the health monitor: %s" % result['response']['err']['msg'])
 
         changed = True
@@ -551,6 +585,8 @@ def main():
     elif state == 'absent':
         result = axapi_call(module, session_url + '&method=slb.hm.delete', json.dumps(json_post['health_monitor']))
         if axapi_failure(result):
+            # log out of the session nicely and exit with error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg="failed to delete the health monitor: %s" % result['response']['err']['msg'])
 
         changed = True
@@ -560,6 +596,8 @@ def main():
     if changed and write_config:
         write_result = axapi_call(module, session_url + '&method=system.action.write_memory')
         if axapi_failure(write_result):
+            # log out of the session nicely and exit with error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg="failed to save the configuration: %s" % write_result['response']['err']['msg'])
 
     # log out of the session nicely and exit

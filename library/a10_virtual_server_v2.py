@@ -87,6 +87,25 @@ options:
     required: false
     default: null
     aliases: ['acl_id']
+  acl_name:
+    description:
+      - acl name bound to the ipv6 virtual server, used for ipv6 wild card vips
+    required: false
+    default: null
+  disable_vserver_on_condition:
+    description:
+      - disable VIP on
+        0 means never
+        1 means when_any_port_down
+        2 means when_all_ports_down
+    required: false
+    default: 0
+  redistribution_flagged:
+    description:
+      - flag this VIP for redistribution through routing protocols
+    required: false
+    default: False
+    choices: ['True','False']
   virtual_server_ports:
     description:
       - A list of ports to create for the virtual server. Each list item should be a
@@ -119,7 +138,7 @@ EXAMPLES = '''
     host: a10.mydomain.com
     username: myadmin
     password: mypassword
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
     virtual_server: vserver1
     virtual_server_ip: 1.1.1.1
     virtual_server_ports:
@@ -138,7 +157,7 @@ EXAMPLES = '''
     host: a10.mydomain.com
     username: myadmin
     password: mypassword
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
     virtual_server: vserver2
     virtual_server_ip: 0.0.0.0
     acl_id: 101
@@ -147,10 +166,25 @@ EXAMPLES = '''
         protocol: HTTPS
         service_group: sg-443-https
 
+# Create a new IPv6 wild card virtual server
+- a10_virtual_server: 
+    host: a10.mydomain.com
+    username: myadmin
+    password: mypassword
+    partition: RCSIN_DEMO
+    virtual_server: vserver_v6
+    virtual_server_ip: 0::0
+    acl_name: v6_acl
+    virtual_server_ports:
+      - port: 443
+        protocol: HTTPS
+        service_group: sg-v6-443-https
+
+
 
 '''
 
-VALID_PORT_FIELDS = ['port', 'protocol', 'service_group', 'status','tcp_template','tcp_proxy_template','ssl_session_id_persistence_template','ha_connection_mirror','extended_stats','source_nat','cookie_persistence_template','aflex_list','http_template','client_ssl_template','server_ssl_template','acl_natpool_binding_list','source_ip_persistence_template']
+VALID_PORT_FIELDS = ['port', 'protocol', 'service_group', 'status','tcp_template','tcp_proxy_template','ssl_session_id_persistence_template','ha_connection_mirror','extended_stats','source_nat','cookie_persistence_template','aflex_list','http_template','client_ssl_template','server_ssl_template','acl_natpool_binding_list','source_ip_persistence_template','send_reset','name','direct_server_return','default_selection']
 
 def validate_ports(module, ports):
     for item in ports:
@@ -203,6 +237,7 @@ def main():
             disable_vserver_on_condition=dict(type='str', choices=['0','1','2'], required=False, default='0'),
             redistribution_flagged=dict(type='str', choices=['True','False'], required=False, default='False'),
             acl_id=dict(type='str', required=False, default=None),
+            acl_name=dict(type='str', required=False, default=None),
             virtual_server_ports=dict(type='list', required=True),
         )
     )
@@ -224,6 +259,7 @@ def main():
     slb_virtual_ports = module.params['virtual_server_ports']
     redistribution_flagged = module.params['redistribution_flagged']
     acl_id = module.params['acl_id']
+    acl_name = module.params['acl_name']
     disable_vserver_on_condition = module.params['disable_vserver_on_condition']
 
     if slb_virtual is None:
@@ -264,9 +300,12 @@ def main():
         if disable_vserver_on_condition:
             json_post['disable_vserver_on_condition'] = disable_vserver_on_condition
 
-        # if acl id was passed in bind it to the vip, otherwise assign the ip address passed in
-        if acl_id:
-            json_post['acl_id'] = acl_id
+        # if acl id or acl name was passed in bind it to the vip, otherwise assign the ip address passed in
+        if acl_id or acl_name:
+            if acl_id:
+                json_post['acl_id'] = acl_id
+            else:
+                json_post['acl_name'] = acl_name
         else:
             json_post['address'] = slb_virtual_ip
 

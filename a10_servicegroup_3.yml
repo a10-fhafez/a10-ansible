@@ -7,7 +7,7 @@
   strategy: debug
   vars:
     state: present
-    partition: RCSIN_PRV
+    partition: RCSIN_DEMO
   vars_prompt:
     - name: username
       prompt: username
@@ -15,8 +15,6 @@
     - name: password
       prompt: password
       private: yes
-
-
 
   tasks:
     - debug:
@@ -28,10 +26,10 @@
         username: "{{username}}"
         password: "{{password}}"
         partition: "{{partition}}"
-        service_group: sg-80-tcp
-#        client_reset: True
+        service_group: sg-v6-80-tcp
+        client_reset: True
         servers:
-           - server: rip_server1
+           - server: rip_server_v6_1
              port: 80
-           - server: rip_server2
+           - server: rip_server_v6_2
              port: 80

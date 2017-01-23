@@ -42,4 +42,6 @@
             src_mask: "0.0.0.0"
             dst_ip: "0.0.0.0"
             dst_mask: "255.255.255.255"
+            dst_port_start: 3700
+            dst_port_end: 3900
             vlan_id: 120

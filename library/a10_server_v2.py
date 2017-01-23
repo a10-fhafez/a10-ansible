@@ -160,10 +160,14 @@ def validate_ports(module, ports, s_url):
 
         # validate that if the health monitor has been passed it, it exists on the system already
         if 'health_monitor' in item:
-            json_post = {"name": item['health_monitor']}
-            result = axapi_call(module, s_url + '&method=slb.hm.search', json.dumps(json_post))
-            if ('response' in result and result['response']['status'] == 'fail'):
-                module.fail_json(msg=result['response']['err']['msg'])
+            # if 'none' was the value of the health_monitor then do a 'no health-monitor'
+            if item['health_monitor'] == 'no':
+                item['health_monitor'] = ''
+            else:
+                json_post = {"name": item['health_monitor']}
+                result = axapi_call(module, s_url + '&method=slb.hm.search', json.dumps(json_post))
+                if ('response' in result and result['response']['status'] == 'fail'):
+                    module.fail_json(msg=result['response']['err']['msg'])
         else:
             item['health_monitor'] = "(default)"
    

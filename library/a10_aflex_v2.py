@@ -140,18 +140,23 @@ def buildPayload(filename):
 
 def uploadAflex(url, name, filepath):
     boundary,data = buildPayload(filepath)
-    response = open_url(url, data, 
-        {
-            'Content-Type' : 'multipart/form-data; boundary=%s' % boundary, 
-            'X-Requested-By' : 'ansible', 
-            'User-Agent': 'ansible', 
-            'Accept':'*/*'
-        },
-         validate_certs=False,
-         method='POST')
-    changed = response.getcode() == 200
-    return changed, response.getcode()
+    response = None
+    try:
+        response = open_url(url, data, 
+            {
+                'Content-Type' : 'multipart/form-data; boundary=%s' % boundary, 
+                'X-Requested-By' : 'ansible', 
+                'User-Agent': 'ansible', 
+                'Accept':'*/*'
+            },
+            validate_certs=False,
+            method='POST')
+        changed = response.getcode() == 200
+    except Exception, e:
+        e.args += (response,)
+        raise e
 
+    return changed, response.getcode()
 
 def main():
     argument_spec = a10_argument_spec()
@@ -189,6 +194,8 @@ def main():
     if part:
         result = axapi_call(module, session_url + '&method=system.partition.active', json.dumps({'name': part}))
         if (result['response']['status'] == 'fail'):
+            # log out of the session nicely and exit with an error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg=result['response']['err']['msg'])
 
     aflex_data = axapi_call(module, session_url + '&method=slb.aflex.search', json.dumps({'name': file_name}))
@@ -202,10 +209,21 @@ def main():
             if not aflex_exists:
 
                 if os.path.isfile(file_name) is False:
+                    # log out of the session nicely and exit with an error
+                    axapi_call(module, session_url + '&method=session.close')
                     module.fail_json(msg='File does not exist')
                 else:
-                    result = uploadAflex(session_url + '&method=slb.aflex.upload&name=' + file_name, 'upload', file_name)
+                    try:
+                        result = uploadAflex(session_url + '&method=slb.aflex.upload&name=' + file_name, 'upload', file_name)
+                    except Exception, e:
+                        # log out of the session nicely and exit with an error
+                        #err_result = e['changed']
+                        axapi_call(module, session_url + '&method=session.close')
+                        module.fail_json(msg=e)
+
                 if axapi_failure(result):
+                    # log out of the session nicely and exit with an error
+                    axapi_call(module, session_url + '&method=session.close')
                     module.fail_json(msg="failed to upload the aflex: %s" % result['response']['err']['msg'])
 
                 changed = True
@@ -214,22 +232,24 @@ def main():
 
             result = axapi_call(module, session_url + '&method=slb.aflex.download&name=' + file_name, '')
             if ('response' in result and result['response']['status'] == 'fail' and 'failed' in result['response']['err']['msg']):
+                # log out of the session nicely and exit with an error
+                axapi_call(module, session_url + '&method=session.close')
                 module.fail_json(msg=result['response']['err']['msg'])
             else:
                 saveFile(file_name, result['response']['err']['msg'])
-
-
-        if method == "upload":
-            changed = True
 
     elif state == 'absent':
         # does the aflex exist on the load balancer
         result = axapi_call(module, session_url + '&method=slb.aflex.search', json.dumps({'name': file_name}))
         if ('response' in result and result['response']['status'] == 'fail'):
+            # log out of the session nicely and exit with an error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg=result['response']['err']['msg'])
 
         result = axapi_call(module, session_url + '&method=slb.aflex.delete', json.dumps({'name': file_name}))
         if ('response' in result and result['response']['status'] == 'fail'):
+            # log out of the session nicely and exit with an error
+            axapi_call(module, session_url + '&method=session.close')
             module.fail_json(msg=result['response']['err']['msg'])
         else:
             changed = True
