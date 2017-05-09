@@ -212,8 +212,6 @@ def main():
 
         if method == "upload":
 
-            call_body = {'aflex': {'file': 'aflex_test.aflex', 'file-handle': 'aflex_test.aflex', 'action':'import'}}
-
             if not aflex_exists:
 
                 if os.path.isfile(file_name) is False:
@@ -248,13 +246,14 @@ def main():
 
     elif state == 'absent':
         # does the aflex exist on the load balancer
-        result = axapi_call(module, session_url + '&method=slb.aflex.search', json.dumps({'name': file_name}))
-        if ('response' in result and result['response']['status'] == 'fail'):
+        result = axapi_call_v3(module, axapi_base_url + 'file/aflex/' + file_name, method="GET", signature=signature)
+        if ('response' in result and result['response']['status'] == 'fail' and 'failed' in result['response']['err']['msg']):
+#            module.fail_json(msg=result['response'])
             # log out of the session nicely and exit with an error
             result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
             module.fail_json(msg=result['response']['err']['msg'])
 
-        result = axapi_call(module, session_url + '&method=slb.aflex.delete', json.dumps({'name': file_name}))
+        result = axapi_call_v3(module, axapi_base_url + 'file/aflex', method="POST", signature=signature, body='{"aflex": {"file": "%s", "file-handle": "%s", "action":"delete"}}')
         if ('response' in result and result['response']['status'] == 'fail'):
             # log out of the session nicely and exit with an error
             result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
