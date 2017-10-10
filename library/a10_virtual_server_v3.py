@@ -321,26 +321,7 @@ def main():
     msg = ""
     
     if state == 'present':
-        # before creating/updating we need to validate that all
-        # service groups defined in the ports list exist
-#        checked_service_groups = []
-#        for port in slb_virtual_ports:
-#            if 'service-group' in port:
-#                # validate that the service group exists already                
-#                result = axapi_call_v3(module, axapi_base_url + 'slb/service-group/' + port['service-group'], method="GET", signature=signature)
-#
-#                # did the lookup of the service-group return some error
-#                if ('response' in result and result['response']['status'] == 'fail'):
-#                    if (result['response']['code'] == 404):
-#                        sg_exist = False
-#                        break
-#                    else:
-#                        logoff_result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-#                        module.fail_json(msg=result['response']['err']['msg'])
-#
-#                # add port to the port-list
-#                json_post['virtual-server']['port-list'].append(port)
-                
+
         if slb_virtual_exists and not overwrite:
             msg = 'virtual server exists but not modified'
             
