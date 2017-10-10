@@ -1,0 +1,73 @@
+- name: create a pair of virtual servers, one of which is a wild card vip
+  user: fadi
+  hosts:  a10-2
+  connection: local
+  gather_facts: no
+  vars:
+    state: present
+    partition: ""
+  vars_prompt:
+    - name: username
+      prompt: username
+      private: no
+    - name: password
+      prompt: password
+      private: yes
+
+  tasks:
+    - debug:
+        msg: "{{inventory_hostname}}"
+    - name: Create a virtual server
+      a10_virtual_server_v3:
+        validate_certs: no
+        host: "{{inventory_hostname}}"
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
+        state: "{{state}}"
+        virtual_server: vs_server1
+        virtual_server_ip: 1.1.1.1
+        redistribution_flagged: 1
+        disable_vserver_on_condition: enable
+        overwrite: yes
+        virtual_server_ports:
+          - port-number: 80
+            protocol: TCP
+            service-group: sg-80-tcp
+#            template-tcp: ""
+            extended-stats: 0
+#            template-persist-ssl-sid: "sslidtemplate"
+#            pool: ""
+            reset-on-server-selection-fail: 1
+            ha-conn-mirror: 1
+          - port-number: 443
+            protocol: HTTPS
+#            template-tcp-proxy: ""
+            aflex-scripts: [{aflex: 'abc'}]
+            no-auto-up-on-aflex: 0
+            service-group: sg-80-tcp
+#            template-client-ssl: ""
+            template-http: "httptempl"
+          - port-number: 8090
+            protocol: http
+            service-group: sg-80-tcp
+#            template-http: ""
+#            template-persist-cookie: ""
+            acl-id-list: [{acl-id: 102, acl-id-src-nat-pool: "testingpool"}] 
+
+        # Create a new IPv6 wild card virtual server
+    - name: Create an IPv6 virtual server
+      a10_virtual_server_v3: 
+        host: "{{inventory_hostname}}"
+        username: "{{username}}"
+        password: "{{password}}"
+        partition: "{{partition}}"
+        state: "{{state}}"
+        virtual_server: vserver_v6
+        virtual_server_ip: 0::0
+        acl_name: v6_acl
+        virtual_server_ports:
+          - port-number: 443
+            protocol: HTTPS
+            service-group: sg-v6-443-https
+

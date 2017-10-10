@@ -7,7 +7,7 @@
   strategy: debug
   vars:
     state: present
-    partition: RCSIN_DEMO
+    partition: ""
   vars_prompt:
     - name: username
       prompt: username
@@ -20,7 +20,7 @@
     - debug:
         msg: "{{inventory_hostname}}"
     - name: Create a service group
-      a10_service_group_v2:
+      a10_service_group_v3:
         validate_certs: no
         host: "{{inventory_hostname}}"
         username: "{{username}}"

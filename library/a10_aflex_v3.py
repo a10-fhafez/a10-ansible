@@ -69,6 +69,13 @@ options:
     required: false
     default: null
     choices: ['upload','download']
+  overwrite:
+    description:
+      - If the cert is found, should you overwrite or just ignore it
+        only applicable when state == present
+    required: false
+    default: 'no'
+    choices: ['yes', 'no']    
   validate_certs:
     description:
       - If C(no), SSL certificates will not be validated. This should only be used
@@ -82,13 +89,16 @@ options:
 
 EXAMPLES = '''
 # Upload an aflex
-- a10_aflex: 
-    host: a10.mydomain.com
-    username: myadmin
-    password: mypassword
-    partition: PART_A
-    aflex: my_aflex
+- a10_aflex_v3: 
+    host: "{{inventory_hostname}}"
+    username: admin
+    password: a10
+    validate_certs: no
+    partition: PARTNAME
+    state: present
+    file_name: abc
     method: upload
+    overwrite: yes
 '''
 
 CLRF = '\r\n'
@@ -171,6 +181,7 @@ def main():
             partition=dict(type='str', aliases=['partition','part'], required=False),
             file_name=dict(type='str', aliases=['filename'], required=False),
             method=dict(type='str', choices=['upload','download'], required=False),
+            overwrite=dict(type='bool', default=False, required=False),            
         )
     )
 
@@ -186,80 +197,87 @@ def main():
     state = module.params['state']
     file_name = module.params['file_name']
     method = module.params['method']
+    overwrite = module.params['overwrite']    
 
   
     if method and method != 'upload' and method != 'download':
         module.fail_json(msg="method must be one of 'upload' or 'download'")
 
     # authenticate
-    axapi_base_url = 'http://%s/axapi/v3/' % host
+    axapi_base_url = 'https://%s/axapi/v3/' % host
     signature = axapi_authenticate_v3(module, axapi_base_url + 'auth', username, password)
 
     # change partitions if we need to
     if part:
-        result = axapi_call_v3(module, axapi_base_url + 'active-partition/' + part, method="POST", signature=signature, body="")
-        if (result['response']['status'] == 'fail'):
+        part_change_result = axapi_call_v3(module, axapi_base_url + 'active-partition/' + part, method="POST", signature=signature, body="")
+        if (part_change_result['response']['status'] == 'fail'):
             # log out of the session nicely and exit with an error
             result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-            module.fail_json(msg=result['response']['err']['msg'])
+            module.fail_json(msg=part_change_result['response']['err']['msg'])
 
     # look for the aflex script on the device
     aflex_data = axapi_call_v3(module, axapi_base_url + 'file/aflex/' + file_name, method="GET", signature=signature)
-    aflex_exists = not axapi_failure(aflex_data)
-
+    aflex_content = ""
+    
+    if ('response' in aflex_data and aflex_data['response']['status'] == 'fail'):
+        if (aflex_data['response']['code'] == 404):
+            aflex_exists = False
+        else:
+            logoff_result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+            module.fail_json(msg=aflex_data['response']['err']['msg'])
+    else:
+        aflex_content = aflex_data['response']['data']
+        aflex_exists = True
+        
     changed = False
     if state == 'present':
 
-        if method == "upload":
+        if (method == "upload" and aflex_exists and overwrite) or (method == "upload" and not aflex_exists):
 
-            if not aflex_exists:
-
-                if os.path.isfile(file_name) is False:
-                    # log out of the session nicely and exit with an error
-                    result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-                    module.fail_json(msg='File does not exist')
-                else:
-                    try:
-                        result = uploadAflex(axapi_base_url + 'file/aflex', 'upload', file_name, signature=signature)
-                    except Exception, e:
-                        # log out of the session nicely and exit with an error
-                        #err_result = e['changed']
-                        result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-                        module.fail_json(msg=e)
-
-                if axapi_failure(result):
-                    # log out of the session nicely and exit with an error
-                    result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-                    module.fail_json(msg="failed to upload the aflex: %s" % result['response']['err']['msg'])
-
-                changed = True
-
-        elif method == "download":
-
-            result = axapi_call_v3(module, axapi_base_url + 'file/aflex/' + file_name, method="GET", signature=signature)
-            if ('response' in result and result['response']['status'] == 'fail' and 'failed' in result['response']['err']['msg']):
+            if os.path.isfile(file_name) is False:
                 # log out of the session nicely and exit with an error
                 result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-                module.fail_json(msg=result['response']['err']['msg'])
+                module.fail_json(msg='File does not exist ' + file_name)
             else:
-                saveFile(file_name, result['response']['err']['msg'])
+                try:
+                    result = uploadAflex(axapi_base_url + 'file/aflex', file_name, file_name, signature=signature)
+                except Exception, e:
+                    # log out of the session nicely and exit with an error
+                    #err_result = e['changed']
+                    result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+                    module.fail_json(msg=e)
+
+            if axapi_failure(result):
+                # log out of the session nicely and exit with an error
+                result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+                module.fail_json(msg="failed to upload the aflex: %s" % result['response']['err']['msg'])
+
+            changed = True
+
+        elif method == "download" and aflex_exists:
+            saveFile(file_name, aflex_content)
+            
+        elif method == "download" and not aflex_exists:
+            result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+            module.fail_json(msg="aflex cannot be found the device")
 
     elif state == 'absent':
         # does the aflex exist on the load balancer
-        result = axapi_call_v3(module, axapi_base_url + 'file/aflex/' + file_name, method="GET", signature=signature)
-        if ('response' in result and result['response']['status'] == 'fail' and 'failed' in result['response']['err']['msg']):
-#            module.fail_json(msg=result['response'])
-            # log out of the session nicely and exit with an error
-            result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-            module.fail_json(msg=result['response']['err']['msg'])
-
-        result = axapi_call_v3(module, axapi_base_url + 'file/aflex', method="POST", signature=signature, body='{"aflex": {"file": "%s", "file-handle": "%s", "action":"delete"}}')
-        if ('response' in result and result['response']['status'] == 'fail'):
-            # log out of the session nicely and exit with an error
-            result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
-            module.fail_json(msg=result['response']['err']['msg'])
+        if aflex_exists:
+            result = axapi_call_v3(module, axapi_base_url + 'file/aflex', method="POST", signature=signature, body={"aflex": {"file": file_name, "action":"delete"}})
+            
+            if ('response' in result and result['response']['status'] == 'fail'):
+                # log out of the session nicely and exit with an error
+                logoff_result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+                #module.fail_json(msg=result['response']['err']['msg'])
+                module.fail_json(msg=result['response'])
+            else:
+                changed = True
+                
         else:
-            changed = True
+            result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+            module.fail_json(msg="aflex not found on device")
+
 
     # log out of the session nicely and exit
     result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")

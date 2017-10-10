@@ -1,4 +1,4 @@
-- name: list a virtual server
+- name: Health monitors only
   user: fadi
   hosts:  a10
   connection: local
