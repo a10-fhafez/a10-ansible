@@ -64,10 +64,11 @@
         partition: "{{partition}}"
         state: "{{state}}"
         virtual_server: vserver_v6
-        virtual_server_ip: 0::0
+        virtual_server_ip: "::"
         acl_name: v6_acl
         virtual_server_ports:
           - port-number: 443
             protocol: HTTPS
-            service-group: sg-v6-443-https
+            service-group: sg-v6-80-tcp
+        overwrite: yes
 

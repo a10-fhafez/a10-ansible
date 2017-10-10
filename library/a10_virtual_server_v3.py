@@ -146,6 +146,7 @@ EXAMPLES = '''
     username: myadmin
     password: mypassword
     partition: MYPART
+    state: present
     virtual_server: vserver1
     virtual_server_ip: 1.1.1.1
     virtual_server_ports:
@@ -165,6 +166,7 @@ EXAMPLES = '''
     username: myadmin
     password: mypassword
     partition: MYPART
+    state: present
     virtual_server: vserver2
     virtual_server_ip: 0.0.0.0
     acl_id: 101
@@ -174,19 +176,21 @@ EXAMPLES = '''
         service-group: sg-443-https
 
 # Create a new IPv6 wild card virtual server
-- a10_virtual_server_v3: 
+- name: Create an IPv6 virtual server
+  a10_virtual_server_v3: 
     host: a10.mydomain.com
     username: myadmin
     password: mypassword
     partition: MYPART
+    state: present
     virtual_server: vserver_v6
-    virtual_server_ip: 0::0
+    virtual_server_ip: "::"
     acl_name: v6_acl
     virtual_server_ports:
       - port-number: 443
         protocol: HTTPS
-        service-group: sg-v6-443-https
-
+        service-group: sg-v6-80-tcp
+    overwrite: yes
 
 - name: Create a virtual server
   a10_virtual_server_v3:
@@ -195,7 +199,7 @@ EXAMPLES = '''
     username: myadmin
     password: mypassword
     partition: MYPART
-    state: "{{state}}"
+    state: present
     virtual_server: vs_server1
     virtual_server_ip: 1.1.1.1
     redistribution_flagged: 1
@@ -295,15 +299,22 @@ def main():
         }
     }
     
+    # is this an IPv4 or IPv6 VIP?
+    if "::" in slb_virtual_ip or len(slb_virtual_ip) > 16:
+        ip_address_field = "ipv6-address"
+        acl_name_field = "ipv6-acl"
+    else:
+        ip_address_field = "ip-address"
+        acl_name_field = "acl-name"
+    
     # if acl id or acl name was passed in bind it to the vip, otherwise assign the ip address passed in
     if acl_id or acl_name:
         if acl_id:
             json_post['virtual-server']['acl-id'] = acl_id
         else:
-            json_post['virtual-server']['acl-name'] = acl_name
-    else:
-        json_post['virtual-server']['ip-address'] = slb_virtual_ip
-    
+            json_post['virtual-server'][acl_name_field] = acl_name
+#    else:
+    json_post['virtual-server'][ip_address_field] = slb_virtual_ip    
 
     result = axapi_call_v3(module, axapi_base_url + 'slb/virtual-server/' + slb_virtual, method="GET", signature=signature)    
 
