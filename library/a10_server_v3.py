@@ -134,7 +134,7 @@ options:
 '''
 
 EXAMPLES = '''
-# Create a new server
+# Create a new ipv4 server
 - a10_server_v3: 
     host: a10.mydomain.com
     username: myadmin
@@ -149,6 +149,31 @@ EXAMPLES = '''
       - port-number: 8443
         protocol: TCP
         health-check: ws_hm_https
+    overwrite: no
+
+# Create an ipv6 server
+- name: Create an ipv6 realserver
+  a10_server_v3:
+    host: a10.mydomain.com
+    username: myadmin
+    password: mypassword
+    server: test
+    validate_certs: no
+    partition: MYPART
+    state: present
+    server_name: s1_v6
+    server_ip: "fe06::12"
+    server_action: enable
+    server_ports:
+      - port-number: 1212
+        protocol: tcp
+        health-check: ws_hm_http
+      - port-number: 8080
+        protocol: tcp
+      - port-number: 53
+        protocol: udp
+    overwrite: no
+
 
 '''
 
@@ -200,6 +225,12 @@ def main():
             result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
             module.fail_json(msg=part_change_result['response']['err']['msg'])
 
+    # is this server an ipv4 or ipv6 server
+    if "::" in slb_server_ip or len(slb_server_ip) > 16:
+        ip_address_field = "server-ipv6-addr"
+    else:
+        ip_address_field = "host"
+            
     # create the JSON object containing the parameters
     json_post = {
         'server': {
@@ -209,7 +240,7 @@ def main():
 
     # add optional module parameters
     if slb_server_ip:
-        json_post['server']['host'] = slb_server_ip
+        json_post['server'][ip_address_field] = slb_server_ip
 
     if slb_server_ports:
         json_post['server']['port-list'] = slb_server_ports
