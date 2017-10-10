@@ -40,3 +40,23 @@
             protocol: udp
         overwrite: no
 
+    - name: Create an ipv6 realserver
+      a10_server_v3:
+        host: "{{inventory_hostname}}"
+        username: "{{username}}"
+        password: "{{password}}"
+        validate_certs: no
+        partition: "{{partition}}"
+        state: "{{state}}"
+        server_name: s1_v6
+        server_ip: "fe06::12"
+        server_action: enable
+        server_ports:
+          - port-number: 1212
+            protocol: tcp
+            health-check: ws_hm_http
+          - port-number: 8080
+            protocol: tcp
+          - port-number: 53
+            protocol: udp
+        overwrite: no
