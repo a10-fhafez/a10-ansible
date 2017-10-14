@@ -29,7 +29,7 @@
         virtual_server_ip: 1.1.1.1
         redistribution_flagged: 1
         disable_vserver_on_condition: enable
-        overwrite: yes
+        overwrite: no
         virtual_server_ports:
           - port-number: 80
             protocol: TCP
@@ -70,5 +70,5 @@
           - port-number: 443
             protocol: HTTPS
             service-group: sg-v6-80-tcp
-        overwrite: yes
+        overwrite: no
 

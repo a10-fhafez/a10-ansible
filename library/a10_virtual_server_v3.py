@@ -3,7 +3,7 @@
 
 """
 Ansible module to manage A10 Networks slb virtual server objects
-(c) 2014, Mischa Peters <mpeters@a10networks.com>
+(c) 2017, Fadi Hafez <fhafez@a10networks.com>
 
 This file is part of Ansible
 
@@ -24,13 +24,13 @@ along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 DOCUMENTATION = '''
 ---
 module: a10_virtual_server
-version_added: 1.8
+version_added: "2.1"
 short_description: Manage A10 Networks devices' virtual servers
 description:
-    - Manage slb virtual server objects on A10 Networks devices via aXAPI
+    - Manage SLB Virtual Server objects on A10 Networks devices via aXAPI
 author: "Fadi Hafez (@a10-fhafez)"
 notes:
-    - Requires A10 Networks aXAPI 2.1
+    - Requires A10 Networks aXAPI 3.0
 requirements: []
 options:
   host:
@@ -232,6 +232,8 @@ EXAMPLES = '''
 
 '''
 
+#RETURN = ''' # '''
+
 def main():
     argument_spec = a10_argument_spec()
     argument_spec.update(url_argument_spec())
@@ -375,8 +377,8 @@ def main():
     module.exit_json(changed=changed, content=result, msg=msg)
 
 # standard ansible module imports
-from ansible.module_utils.basic import *
-from ansible.module_utils.urls import *
-from ansible.module_utils.a10 import *
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.urls import url_argument_spec
+from ansible.module_utils.a10 import axapi_call, axapi_call_v3, a10_argument_spec, axapi_authenticate_v3, axapi_enabled_disabled
 if __name__ == '__main__':
     main()
