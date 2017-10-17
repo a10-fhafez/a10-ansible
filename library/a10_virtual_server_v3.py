@@ -232,7 +232,7 @@ EXAMPLES = '''
 
 '''
 
-#RETURN = ''' # '''
+RETURN = ''' # '''
 
 def main():
     argument_spec = a10_argument_spec()
