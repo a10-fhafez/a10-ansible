@@ -23,7 +23,7 @@ along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 DOCUMENTATION = '''
 ---
-module: a10_server
+module: a10_server_v3
 version_added: "2.1"
 short_description: Manage A10 Networks AX/SoftAX/Thunder/vThunder devices
 description:
@@ -306,6 +306,14 @@ def main():
             changed = False
             msg="the server was not present"
 
+    # if the config has changed, save the config unless otherwise requested
+    if changed and write_config:
+        result = axapi_call_v3(module, axapi_base_url + 'write/memory', method="POST", signature=signature)
+        
+        if ('response' in result and 'err' in result['response']):
+            logoff_result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+            module.fail_json(msg=result['response']['err']['msg'])
+            
     # log out of the session nicely and exit
     result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
     module.exit_json(changed=changed, content=result, msg=msg)

@@ -94,12 +94,12 @@ options:
     default: null
   disable_vserver_on_condition:
     description:
-      - disable VIP on
-        0 means never
-        1 means when_any_port_down
-        2 means when_all_ports_down
+      - either enable the VIP or disable the VIP with or with a condition.  Conditions are as follows
+        disable-when-all-ports-down
+        disable-when-any-port-down
     required: false
-    default: 0
+    choices: ['enable','disable','disable-when-all-ports-down', 'disable-when-any-port-down']
+    default: 'enable'
   redistribution_flagged:
     description:
       - flag this VIP for redistribution through routing protocols
@@ -368,9 +368,11 @@ def main():
 
     # if the config has changed, save the config unless otherwise requested
     if changed and write_config:
-        write_result = axapi_call(module, session_url + '&method=system.action.write_memory')
-        if axapi_failure(write_result):
-            module.fail_json(msg="failed to save the configuration: %s" % write_result['response']['err']['msg'])
+        result = axapi_call_v3(module, axapi_base_url + 'write/memory', method="POST", signature=signature)
+        
+        if ('response' in result and 'err' in result['response']):
+            logoff_result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")
+            module.fail_json(msg=result['response']['err']['msg'])
 
     # log out of the session nicely and exit
     result = axapi_call_v3(module, axapi_base_url + 'logoff', method="POST", signature=signature, body="")

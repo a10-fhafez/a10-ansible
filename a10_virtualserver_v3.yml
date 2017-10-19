@@ -71,4 +71,5 @@
             protocol: HTTPS
             service-group: sg-v6-80-tcp
         overwrite: no
+        write_config: yes
 
