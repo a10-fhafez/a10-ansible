@@ -60,3 +60,4 @@
           - port-number: 53
             protocol: udp
         overwrite: no
+        write_config: yes

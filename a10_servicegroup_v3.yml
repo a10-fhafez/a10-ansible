@@ -47,3 +47,4 @@
            - name: s1_v6
              port: 80
         overwrite: no
+        write_config: yes
