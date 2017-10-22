@@ -102,12 +102,38 @@ def axapi_call_v3(module, url, method=None, body=None, signature=None):
     Returns a datastructure based on the result of the API call
     '''
     if signature:
+        # if a signature has been passed in then just execute the call
         headers = {'content-type': 'application/json', 'Authorization': 'A10 %s' % signature}
     else:
+        # otherwise this is an attempted authentication
         headers = {'content-type': 'application/json'}
-    rsp, info = fetch_url(module, url, method=method, data=json.dumps(body), headers=headers)
-    if not rsp or info['status'] >= 400:
-        module.fail_json(msg="failed to connect (status code %s), error was %s" % (info['status'], info.get('msg', 'no error given')))
+
+    if body != None:
+        data = json.dumps(body)
+    else:
+        data = ""
+
+    rsp, info = fetch_url(module, url, method=method, data=data, headers=headers)
+
+    # an error STATUS CODE was returned
+    if info['status'] >= 400:
+        data_body = {}
+        data_body_raw = ""
+        try:
+            data_body = json.loads(info['body'])
+            data_body['response']['code'] = info['status']
+        except ValueError:
+            data_body_raw = info['body']
+
+        # we have a json formatted error msg
+        if data_body:
+            return data_body
+        elif data_body_raw:
+            return {"response": {"status": "fail", "err": {"msg": data_body_raw}}}
+        else:        
+            return {"response": {"status": "fail", "err": {"msg": info['status']}}}
+
+    # a non-4xx response was provided.  Let's see what it is
     try:
         raw_data = rsp.read()
         data = json.loads(raw_data)
@@ -115,14 +141,16 @@ def axapi_call_v3(module, url, method=None, body=None, signature=None):
         # at least one API call (system.action.write_config) returns
         # XML even when JSON is requested, so do some minimal handling
         # here to prevent failing even when the call succeeded
-        if 'status="ok"' in raw_data.lower():
-            data = {"response": {"status": "OK"}}
-        else:
-            data = {"response": {"status": "fail", "err": {"msg": raw_data}}}
-    except:
-        module.fail_json(msg="could not read the result from the host")
-    finally:
-        rsp.close()
+       if 'status="ok"' in raw_data.lower() or (info['status'] >= 200 and info['status'] <= 300):
+           data = {"response": {"status": "OK", "data": raw_data}}
+       else:
+           data = {"response": {"status": "fail", "err": {"msg": raw_data}}}
+    except Exception as e:
+        data = {"response": {"status": "fail", "err": {"msg": e.args[0]}}}
+#        raise Exception('link not found')
+#        module.fail_json(msg="could not read the result from the host")
+#    finally:
+#        rsp.close()
     return data
 
 def axapi_enabled_disabled(flag):
